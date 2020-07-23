@@ -8,6 +8,8 @@
 /G3D10/samples/minimalOpenGL
 # this model isn't likely to change, and is data anyway
 /G3D10/data-files/model/vr
+# don't commit the G3D installer to git
+/G3D10/installg3dwin.hta
 
 # not sure if this needs to be ignored
 /G3D10/temp
