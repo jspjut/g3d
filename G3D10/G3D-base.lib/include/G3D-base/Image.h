@@ -231,8 +231,9 @@ public:
 
         Examples:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+img.forEachPixel<Color4>([&](const Color4& src) { return Color4(src.rgb() * 2, src.a); });
+img.forEachPixel<Color4unorm8>([&](const Color4unorm8& src) { return Color4unorm8(src.b, src.g, src.r, src.a); });
 img.forEachPixel(std::bind<tracePixel, this>);
-img.forEachPixel([](const Color4& src) { return Color4(src.rgb() * 2, src.a); });
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     */
     template<typename ColorType>
@@ -249,7 +250,6 @@ img.forEachPixel([](const Color4& src) { return Color4(src.rgb() * 2, src.a); })
         }, ! multiThread);
     }
     
-    
     template<typename ColorType>
     void forEachPixel(std::function<ColorType (const ColorType& src)> callback,
                       bool multiThread =
@@ -260,10 +260,39 @@ img.forEachPixel([](const Color4& src) { return Color4(src.rgb() * 2, src.a); })
                       #endif
                       ) {
         runConcurrently(Point2int32(0, 0), Point2int32(width(), height()), [&](Point2int32 coord) {
-            set(coord, callback(coord));
+            set(coord, callback(get<ColorType>(coord)));
         }, ! multiThread);
     }
-    
+
+    template<typename ColorType>
+    void forEachPixel(std::function<ColorType(ColorType src)> callback,
+        bool multiThread =
+#ifdef G3D_DEBUG
+        false
+#else
+        true
+#endif
+    ) {
+        runConcurrently(Point2int32(0, 0), Point2int32(width(), height()), [&](Point2int32 coord) {
+            set(coord, callback(get<ColorType>(coord)));
+            }, !multiThread);
+    }
+
+    template<typename ColorType>
+    void forEachPixel(std::function<void(ColorType src)> callback,
+        bool multiThread =
+#ifdef G3D_DEBUG
+        false
+#else
+        true
+#endif
+    ) const {
+        runConcurrently(Point2int32(0, 0), Point2int32(width(), height()), [&](Point2int32 coord) {
+            callback(get<ColorType>(coord));
+            }, !multiThread);
+    }
+
+
     template<typename ColorType>
     void forEachPixel(std::function<ColorType (Point2int32 coord)> callback,
                       bool multiThread =

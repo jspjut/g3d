@@ -67,6 +67,14 @@ public:
             */
         float       areaLightDirectFraction = 0.7f;
 
+        G3D_DECLARE_ENUM_CLASS(LightSamplingMethod,
+            UNIFORM_AREA,
+            STRATIFIED_AREA,
+            LOW_DISCREPANCY_AREA,
+            LOW_DISCREPANCY_SOLID_ANGLE
+        );
+        LightSamplingMethod samplingMethod = LightSamplingMethod::LOW_DISCREPANCY_SOLID_ANGLE;
+
         Options()
 #       ifdef G3D_DEBUG
             : raysPerPixel(1),
@@ -111,10 +119,10 @@ protected:
             avoids double-counting the lights. */
         Array<bool>                             impulseRay;
     
-        /** Location in the output buffer to write the final radiance to. Empty if outputCoord is used. */
+        /** Location in the output buffer to write the final radiance to.*/
         Array<int>                              outputIndex;
 
-        /** Location in the output image to write the final radiance to. Empty if outputIndex is used. */
+        /** Location in the output image to write the final radiance to.*/
         Array<PixelCoord>                       outputCoord;
 
         size_t size() const {
@@ -221,6 +229,8 @@ protected:
         int                                     currentPathDepth,
         int                                     currentRayIndex,
         const Options&                          options,
+        const Array<PixelCoord>&                pixelCoordBuffer,
+        const int                               radianceImageWidth,
         Array<Radiance3>&                       directBuffer,
         Array<Ray>&                             shadowRayBuffer) const;
 

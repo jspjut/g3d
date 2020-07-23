@@ -13,6 +13,7 @@
 #include "G3D-app/Camera.h"
 #include "G3D-app/Scene.h"
 #include "G3D-app/UniversalSurfel.h"
+#include "G3D-gfx/GLPixelTransferBuffer.h"
 
 namespace G3D {
 
@@ -76,6 +77,7 @@ void PathTracer::traceImage
         buffers.modulation.setAll(Color3::one());
         buffers.impulseRay.setAll(true);
         buffers.outputCoord.resize(numPixels);
+        
         generateEyeRays(radianceImage->width(), radianceImage->height(), camera, buffers.ray, options.raysPerPixel > 1, buffers.outputCoord, weightSumImage, rayIndex, options.raysPerPixel);
         
         // Visualize eye rays
@@ -183,8 +185,19 @@ static bool visibleAreaLight(const shared_ptr<Light>& light) {
 
 Point3 PathTracer::sampleOneLight(const shared_ptr<Light>& light, const Point3& X, const Vector3& n, int pixelIndex, int lightIndex, int sampleIndex, int numSamples, float& areaTimesPDFValue) const {
     areaTimesPDFValue = 1.0f;
-    // To add angular sampling, just switch which function is called here:
-    return light->lowDiscrepancyPosition(pixelIndex, lightIndex, sampleIndex, numSamples).xyz();
+
+   switch (m_options.samplingMethod) {
+   case Options::LightSamplingMethod::UNIFORM_AREA:
+       return light->uniformAreaPosition();
+   case Options::LightSamplingMethod::STRATIFIED_AREA:
+       return light->stratifiedAreaPosition(pixelIndex, sampleIndex, numSamples);
+   case Options::LightSamplingMethod::LOW_DISCREPANCY_AREA:
+       return light->lowDiscrepancyAreaPosition(pixelIndex, lightIndex, sampleIndex, numSamples);
+   case Options::LightSamplingMethod::LOW_DISCREPANCY_SOLID_ANGLE:
+   default:
+       return light->lowDiscrepancySolidAnglePosition(pixelIndex, lightIndex, sampleIndex, numSamples, X, areaTimesPDFValue);
+   }
+
 }
 
 
@@ -206,11 +219,24 @@ const shared_ptr<Light>& PathTracer::importanceSampleLight
     if (lightArray.size() == 1) {
         // There is only one light, so of course we will sample it
         float areaTimesPDFValue;
+
         const Point3& Y = sampleOneLight(light0, X, n, sequenceIndex, 0, rayIndex, raysPerPixel, areaTimesPDFValue).xyz();
 
         lightPosition = Y;
         const Vector3& w_i = (lightPosition - X).direction();  
-        biradiance = light0->biradiance(X, lightPosition) / areaTimesPDFValue;
+        biradiance = light0->biradiance(X, lightPosition);
+
+        // To get correct brightness, we need to divide by the light area and the pdf with which we sampled.
+        // However, if and only if biradiance is 0, the pdfValue is allowed to be 0, so don't divide by it 
+        // unless we're sure that we have non-zero pdf;
+        if (areaTimesPDFValue != 0.0f) {
+            biradiance /= areaTimesPDFValue;
+        }
+        else {
+            // Ensure that biradiance is 0 if the pdf was 0.
+            debugAssertM(biradiance == Biradiance3(0.0f), "pdf value of zero with non-zero biradiance");
+        }
+        
         const Color3& f = surfel->finiteScatteringDensity(w_i, w_o);
         debugAssertM(biradiance.min() >= 0.0f, "Negative biradiance for light");
         debugAssertM(f.min() >= 0.0f, "Negative finiteScatteringDensity");
@@ -239,7 +265,7 @@ const shared_ptr<Light>& PathTracer::importanceSampleLight
         // a shadow ray to:
         for (int j = 0; j < lightArray.size(); ++j) {
             const shared_ptr<Light>& light = lightArray[j];
-          
+            
             // Add : return areaTimesPDFValue
             float areaTimesPDFValue;
             const Point3& Y = sampleOneLight(light, X, n, sequenceIndex, j, rayIndex, raysPerPixel, areaTimesPDFValue).xyz();
@@ -310,6 +336,8 @@ void PathTracer::computeDirectIllumination
  int                                 currentPathDepth,
  int                                 currentRayIndex,
  const Options&                      options,
+ const Array<PixelCoord>&            pixelCoordBuffer,
+ const int                           radianceImageWidth,
  Array<Radiance3>&                   directBuffer,
  Array<Ray>&                         shadowRayBuffer) const {
 
@@ -319,12 +347,17 @@ void PathTracer::computeDirectIllumination
         const shared_ptr<Surfel>& surfel = surfelBuffer[i];
 
         debugAssert(notNull(surfel));
+
         Point3      lightPosition;
         Radiance3&  L_sd = directBuffer[i];
         Biradiance3 biradiance;
         Color3      cosBSDFDivPDF;
 
-        const shared_ptr<Light>& light = importanceSampleLight(lightArray, -rayBuffer[i].direction(), surfel, i * options.maxScatteringEvents + currentPathDepth, currentRayIndex, options.raysPerPixel, biradiance, cosBSDFDivPDF, lightPosition);
+        Point2 pixelCoord = pixelCoordBuffer[i];
+        int surfelIndex = int(pixelCoord.x + pixelCoord.y * radianceImageWidth);
+        // Compute the surfel index before surfel compaction to ensure the low
+        // discrepancy samples are not accidentally correlated.
+        const shared_ptr<Light>& light = importanceSampleLight(lightArray, -rayBuffer[i].direction(), surfel, surfelIndex * options.maxScatteringEvents + currentPathDepth, currentRayIndex, options.raysPerPixel, biradiance, cosBSDFDivPDF, lightPosition);
         L_sd = biradiance * cosBSDFDivPDF;
 
         // Cast shadow rays from the light to the surface for more coherence in scenes
@@ -576,11 +609,13 @@ void PathTracer::traceBufferInternal
     const int numRays = buffers.ray.size();
     if (numRays == 0) { return; }
 
-    alwaysAssertM((buffers.outputIndex.size() > 0) != notNull(radianceImage), "Exactly one of bufferSet.outputIndex and radianceImage may be specified");
+    //alwaysAssertM((buffers.outputIndex.size() > 0) != notNull(radianceImage), "Exactly one of bufferSet.outputIndex and radianceImage may be specified");
     alwaysAssertM(isNull(radianceImage) || (numRays == buffers.outputCoord.size()), "Must be one ray per pixel coord");   
     debugAssertM(! distance || output, "Cannot specify distance buffer without an output buffer");
     
     const int numTraceIterations = m_options.maxScatteringEvents - (m_options.useEnvironmentMapForLastScatteringEvent ?  1 : 0);
+
+    int radianceImageWidth = radianceImage->width();
 
     for (int scatteringEvents = 0; (scatteringEvents < numTraceIterations) && (buffers.surfel.size() > 0); ++scatteringEvents) {
 
@@ -608,7 +643,7 @@ void PathTracer::traceBufferInternal
 
         // Direct lighting
         if (directLightArray.size() > 0) {
-            computeDirectIllumination(buffers.surfel, directLightArray, buffers.ray, scatteringEvents, currentRayIndex, m_options, buffers.direct, buffers.shadowRay);
+            computeDirectIllumination(buffers.surfel, directLightArray, buffers.ray, scatteringEvents, currentRayIndex, m_options, buffers.outputCoord, radianceImageWidth, buffers.direct, buffers.shadowRay);
             m_triTree->intersectRays(buffers.shadowRay, buffers.lightShadowed, TriTree::COHERENT_RAY_HINT | TriTree::DO_NOT_CULL_BACKFACES | TriTree::OCCLUSION_TEST_ONLY);
             shade(buffers.surfel, buffers.ray, buffers.shadowRay, buffers.lightShadowed, buffers.direct, buffers.modulation, output, buffers.outputIndex, radianceImage, buffers.outputCoord);
         }

@@ -1462,7 +1462,7 @@ public:
     static shared_ptr<Texture> cosHemiRandom();
 
     /** Returns a texture of 1024^2 oct32-encoded uniformly distributed random vectors on the sphere.
-        Use octDecode(texelFetch(g3d_cosHemiRandom, pos, 0).xy) in a shader to decode these.
+        Use octDecode(texelFetch(g3d_sphereRandom, pos, 0).xy) in a shader to decode these.
         This is automatically bound as g3d_sphereRandom in shaders that use it.
     */
     static shared_ptr<Texture> sphereRandom();

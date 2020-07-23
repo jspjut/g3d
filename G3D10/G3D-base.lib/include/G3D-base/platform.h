@@ -297,6 +297,13 @@ namespace G3D {
         /** Should AudioDevice be enabled? (It will still be initialized regardless of enabling.) Default: false. */
         bool audio = false;
 
+        /** Audio DSP buffer length to use. Affects audio latency. Default: 1024. 
+        FMOD claims that the default results in 21.33 ms of latency at 48 khz (1024 / 48000 * 1000 = 21.33). */
+        unsigned int audioBufferLength = 1024;
+
+        /** Number of audio DSP buffers to use. Default: 4. */
+        int audioNumBuffers = 4;
+
         /** Set parameters for deployment of a standalone application.
             If true, disable System::findDataFile's ability to look in
             the directory specified by the G3D10DATA environment variable. */

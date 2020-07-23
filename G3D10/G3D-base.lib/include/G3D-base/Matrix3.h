@@ -161,6 +161,7 @@ public:
 
     Matrix3& operator+= (const Matrix3& rkMatrix);
     Matrix3& operator-= (const Matrix3& rkMatrix);
+    /** Matrix-matrix multiply */
     Matrix3& operator*= (const Matrix3& rkMatrix);
 
     /**

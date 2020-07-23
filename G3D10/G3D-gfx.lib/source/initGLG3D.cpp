@@ -46,7 +46,7 @@ void initGLG3D(const G3DSpecification& spec) {
         initG3D(spec);
 #       ifndef G3D_NO_FMOD
             AudioDevice::instance = new AudioDevice();
-            AudioDevice::instance->init(spec.audio);
+            AudioDevice::instance->init(spec.audio, 1000, spec.audioBufferLength, spec.audioNumBuffers);
 #       endif
         atexit(&GLG3DCleanupHook);
         initialized = true;

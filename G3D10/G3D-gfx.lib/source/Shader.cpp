@@ -700,6 +700,16 @@ void Shader::bindUniformArg(const Args::Arg& arg, const ShaderProgram::UniformDe
         }
         break;
 
+    case GL_FLOAT_MAT3x2:
+    {
+        float m[6];
+        for (int i = 0; i < 6; ++i) {
+            m[i] = arg.value[i].f;
+        }
+        glUniformMatrix3x2fv(location, 1, GL_FALSE, m);
+    }
+    break;
+
     case GL_FLOAT_MAT4:
         {
             float m[16];

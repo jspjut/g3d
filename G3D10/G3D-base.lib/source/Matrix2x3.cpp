@@ -12,6 +12,8 @@
 #include "G3D-base/System.h"
 #include "G3D-base/G3DString.h"
 #include "G3D-base/stringutils.h"
+#include "G3D-base/Any.h"
+
 
 namespace G3D {
     
@@ -19,7 +21,21 @@ Matrix2x3::Matrix2x3(const float* init) {
     System::memcpy(elt, init, sizeof(float) * 6);
 }
     
-    
+
+Matrix2x3::Matrix2x3(const Any& any) {
+    any.verifyName("Matrix3");
+    any.verifyType(Any::ARRAY);
+
+    any.verifySize(6);
+
+    for (int r = 0; r < 2; ++r) {
+        for (int c = 0; c < 3; ++c) {
+            elt[r][c] = any[r * 3 + c];
+        }
+    }
+}
+
+
 /** Matrix2x3::zero() */
 Matrix2x3::Matrix2x3() {
     System::memset(elt, 0, sizeof(float) * 6);

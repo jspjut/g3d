@@ -77,7 +77,7 @@ UniformTable::UniformTable(const Any& any) {
             } else if (v.nameBeginsWith("Matrix4")) {
                 setUniform(it->key, Matrix4(v));
             } else if (v.nameBeginsWith("Matrix2x3")) {
-                alwaysAssertM(false, "Matrix2x3 not supported for Any shader arguments");
+                setUniform(it->key, Matrix2x3(v));
             } else if (v.nameBeginsWith("CFrame")) {
                 setUniform(it->key, CFrame(v));
             } else if (v.nameBeginsWith("PhysicsFrame")) {
@@ -96,7 +96,7 @@ UniformTable::UniformTable(const Any& any) {
 }
 
 
-    void UniformTable::setPreamble(const String& preamble) {
+void UniformTable::setPreamble(const String& preamble) {
     m_preamble = preamble;
 }
 
@@ -525,6 +525,10 @@ void UniformTable::setUniform(const String& name, const Matrix3& mat, bool optio
     arg.set(mat, optional);
 }
 
+void UniformTable::setUniform(const String& name, const Matrix2x3& mat, bool optional) {
+    Arg& arg = m_uniformArgs.getCreate(name);
+    arg.set(mat, optional);
+}
 
 void UniformTable::setUniform(const String& name, const Matrix4& mat, bool optional) {
     Arg& arg = m_uniformArgs.getCreate(name);

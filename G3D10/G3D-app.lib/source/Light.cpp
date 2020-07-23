@@ -155,7 +155,7 @@ Power3 Light::emittedPower() const {
     case Type::AREA:
     default:
         // Bulb power scaled by the fraction of sphere's solid angle subtended
-        return bulbPower() / 4.0f;
+        return bulbPower() / (4.0f * pif());
 
     case Type::SPOT:
         // Bulb power scaled by the fraction of sphere's solid angle subtended.
@@ -207,7 +207,6 @@ Biradiance3 Light::biradiance(const Point3& X) const {
     return biradiance(X, frame().translation);
 }
 
-
 Biradiance3 Light::biradiance(const Point3& X, const Point3& P) const {
     Vector3 wi = P - X;
     float d = wi.length();
@@ -216,7 +215,7 @@ Biradiance3 Light::biradiance(const Point3& X, const Point3& P) const {
     // Attempt to enforce a minimum distance in the computation
     // d = max(d, min(m_extent.x, m_extent.y));
 
-    const Biradiance3& b = bulbPower() / (4 * pif() * (attenuation[0] + attenuation[1] * d + attenuation[2] * square(d)));
+    const Biradiance3& b = bulbPower() / (4.0f * pif() * (attenuation[0] + attenuation[1] * d + attenuation[2] * square(d)));
 
     if (m_type == Type::SPOT) {
         return b * spotLightFalloff(wi);
@@ -263,14 +262,146 @@ float Light::spotLightFalloff(const Vector3& w_i)  const {
     return s;
 }
 
-
-Vector4 Light::lowDiscrepancyPosition(int pixelIndex, int lightIndex, int sampleIndex, int numSamples) const {
-    const int f[] = {pixelIndex, lightIndex};
+Point2 Light::lowDiscrepancySample(int pixelIndex, int lightIndex, int sampleIndex, int numSamples) const {
+    const int f[] = { pixelIndex, lightIndex };
     const uint32_t hash = superFastHash(&f, 2 * sizeof(int));
-    const Point2 shift((hash >> 16) * (1.0f / float(0xFFFF)), (hash & 0xFFFF) * (1.0f / float(0xFFFF)));
+    // Normalize both halves of the 32 bit hash value into 2 component 0-1 vector.
+    const Point2 shift((hash >> 16)* (1.0f / float(0xFFFF)), (hash & 0xFFFF)* (1.0f / float(0xFFFF)));
     const Point2& h = (Point2::hammersleySequence2D(sampleIndex, numSamples) + shift).mod1();
+    return h;
+}
 
-    return position(h.x * 2.0f - 1.0f, h.y * 2.0f - 1.0f);
+Point3 Light::lowDiscrepancyAreaPosition(int pixelIndex, int lightIndex, int sampleIndex, int numSamples) const {
+    Point2 sample = lowDiscrepancySample(pixelIndex, lightIndex, sampleIndex, numSamples);
+    return position(sample.x * 2.0f - 1.0f, sample.y * 2.0f - 1.0f).xyz();
+}
+
+Point3 Light::uniformAreaPosition() const {
+    Random& rng = Random::threadCommon();
+    float u = rng.uniform();
+    float v = rng.uniform();
+    return position(u * 2.0f - 1.0f, v * 2.0f - 1.0f).xyz();
+}
+
+Point3 Light::stratifiedAreaPosition(int pixelIndex, int sampleIndex, int numSamples) const {
+
+    // Minimum divisor of numSamples greater sqrt(numSamples).
+    int horizontalStrata = iCeil(sqrtf((float)numSamples));
+    while (numSamples % horizontalStrata != 0) {
+        ++horizontalStrata;
+    }
+    int verticalStrata = numSamples / horizontalStrata;
+
+    Random& rng = Random::threadCommon();
+
+    // Flip the strata axes at every other pixel in case
+    // numSamples is (nearly) prime.
+    if (pixelIndex % 2 == 0) {
+        int temp = horizontalStrata;
+        horizontalStrata = verticalStrata;
+        verticalStrata = temp;
+    }
+
+    const int stratumIndex = sampleIndex % (horizontalStrata * verticalStrata);
+
+    float u = rng.uniform();
+    float v = rng.uniform();
+
+    // Place a smple within the next stratum.
+    u = (u + float(stratumIndex % horizontalStrata)) / float(horizontalStrata);
+    v = (v + float(stratumIndex / horizontalStrata)) / float(verticalStrata);
+
+    return position(u * 2.0f - 1.0f, v * 2.0f - 1.0f).xyz();
+}
+
+Vector3 Light::sampleSphericalQuad(const Point3& origin, float u, float v, float& solidAngle) const {
+        // compute local reference system ’R’
+        const Vector3& X = -m_frame.rightVector();
+        const Vector3& Y = m_frame.upVector();
+        Vector3 Z = m_frame.lookVector();
+
+        // compute rectangle coords in local reference system
+        Vector3 dVec = m_frame.pointToWorldSpace(Point3(0.5f * m_extent.x, -0.5f * m_extent.y, 0.0f)) - origin;
+        float z0 = dot(dVec, Z);
+
+        // flip ’z’ to make it point against ’Q’
+        if (z0 > 0) {
+            // Because of the way we set up the coordinate system this
+            // branch is never taken for single sided light sources
+            // that face toward the origin.
+            Z *= -1;
+            z0 *= -1;
+        }
+
+        float x0 = dot(dVec, X);
+        float y0 = dot(dVec, Y);
+        float x1 = x0 + m_extent.x;
+        float y1 = y0 + m_extent.y;
+
+        // create vectors to four vertices
+        Vector3 v00 = { x0, y0, z0 };
+        Vector3 v01 = { x0, y1, z0 };
+        Vector3 v10 = { x1, y0, z0 };
+        Vector3 v11 = { x1, y1, z0 };
+
+        // compute normals to edges
+        Vector3 n0 = normalize(cross(v00, v10));
+        Vector3 n1 = normalize(cross(v10, v11));
+        Vector3 n2 = normalize(cross(v11, v01));
+        Vector3 n3 = normalize(cross(v01, v00));
+
+        // compute internal angles (gamma_i)
+        float g0 = acos(-dot(n0, n1));
+        float g1 = acos(-dot(n1, n2));
+        float g2 = acos(-dot(n2, n3));
+        float g3 = acos(-dot(n3, n0));
+
+        // compute solid angle from internal angles
+        float k = 2 * pif() - g2 - g3;
+
+        // Avoid 0 or negative solid angle.
+        solidAngle = max(0.00001f, g0 + g1 - k);
+
+        // Sample the spherical quad
+        const float eps = 1e-4;
+        // 1. compute ’cu’
+        float au = u * solidAngle + k;
+        float fu = (cos(au) * n0.z - n2.z) / sin(au);
+        float cu = 1 / sqrt(fu * fu + n0.z * n0.z) * (fu > 0 ? +1 : -1);
+        cu = clamp(cu, -1.0f, 1.0f); // avoid NaNs
+        // 2. compute ’xu’
+        float xu = -(cu * z0) / sqrt(1 - cu * cu);
+        xu = clamp(xu, x0, x1); // avoid Infs
+        // 3. compute ’yv’
+        float d = sqrt(xu * xu + z0 * z0);
+        float h0 = y0 / sqrt(d * d + y0 * y0);
+        float h1 = y1 / sqrt(d * d + y1 * y1);
+        float hv = h0 + v * (h1 - h0), hv2 = hv * hv;
+        float yv = (hv2 < 1 - eps) ? (hv * d) / sqrt(1 - hv2) : y1;
+
+        // 4. transform (xu,yv,z0) to world coords
+        return (origin + xu * X + yv * Y + z0 * Z);
+}
+
+Point3 Light::lowDiscrepancySolidAnglePosition(int pixelIndex, int lightIndex, int sampleIndex, int numSamples, const Point3& X, float& areaTimesPDFValue) const {
+    Point2 areaSample = lowDiscrepancySample(pixelIndex, lightIndex, sampleIndex, numSamples);
+
+    float solidAngle;
+    Point3 P = sampleSphericalQuad(X, areaSample.x, areaSample.y, solidAngle);
+
+    Vector3 wi = P - X;
+    float d = wi.length();
+    wi /= d;
+
+    // This is the pdf over the light area of a point uniformly sampled in solid angle space.
+    // The same pdf over the solid angle would be constant: 1 / solidAngle.
+    // Note the absolute value to ensure that we return the correct pdf for points behind the area light.
+    // For pathtracing, the biradiance will be 0 for such points, so the answer will still be correct.
+    float pdfValue = (fabs(wi.dot(m_frame.lookVector())) / (attenuation[0] + attenuation[1] * d + attenuation[2] * square(d))) * (1.0f / solidAngle);
+
+    areaTimesPDFValue = (m_extent.x * m_extent.y) * pdfValue;
+
+    return P;
 }
 
 

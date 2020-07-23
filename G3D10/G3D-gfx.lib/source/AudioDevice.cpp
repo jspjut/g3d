@@ -28,7 +28,7 @@ static void ERRCHECK(FMOD_RESULT result) {
 }
     
     
-AudioDevice::AudioDevice() : m_fmodSystem(nullptr), m_enable(false) {
+AudioDevice::AudioDevice() : m_enable(false), m_fmodSystem(nullptr) {
     instance = this;
 }
 
@@ -44,7 +44,7 @@ void AudioDevice::setListener3DAttributes(const CFrame& listenerFrame, const Vec
 }
     
 
-void AudioDevice::init(bool enable, int numVirtualChannels) {
+void AudioDevice::init(bool enable, int numVirtualChannels, unsigned int bufferLength, int numBuffers) {
     m_enable = enable;
     if (enable) {
         alwaysAssertM(m_fmodSystem == nullptr, "Already initialized");
@@ -56,6 +56,8 @@ void AudioDevice::init(bool enable, int numVirtualChannels) {
         ERRCHECK(result);
             
         alwaysAssertM(version >= FMOD_VERSION, format("FMOD lib version %08x doesn't match header version %08x", version, FMOD_VERSION));
+
+        m_fmodSystem->setDSPBufferSize(bufferLength, numBuffers);
             
         void* extradriverdata = nullptr;
         result = m_fmodSystem->init(numVirtualChannels, FMOD_INIT_NORMAL | FMOD_INIT_3D_RIGHTHANDED, extradriverdata);

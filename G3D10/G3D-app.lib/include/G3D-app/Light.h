@@ -248,6 +248,13 @@ protected:
 
     void init(const String& name, AnyTableReader& propertyTable);
 
+    /**
+        Takes a 2D random vector, samples that point in the projected spherical quad,
+        then returns the world-space position on the light of that sample. (Urena, 2013)
+        \cite https://www.arnoldrenderer.com/research/egsr2013_spherical_rectangle.pdf
+    */
+	Vector3 sampleSphericalQuad(const Point3& origin, float u, float v, float& solidAngle) const;
+
 public:
 
     CullFace shadowCullFace() const {
@@ -280,7 +287,7 @@ public:
         m_spotHalfAngle = rad;
     }
 
-    /** Biradiance due to the entire emitter to point X, using the light's specified falloff and spotlight doors.*/
+    /** Biradiance (radiant flux per area) due to the entire emitter to point X, using the light's specified falloff and spotlight doors.*/
     Biradiance3 biradiance(const Point3& X) const;
 
     Biradiance3 biradiance(const Point3& X, const Point3& pointOnAreaLight) const;
@@ -393,7 +400,23 @@ public:
 
         \sa randomPosition
       */
-    Vector4 lowDiscrepancyPosition(int pixelIndex, int lightIndex, int sampleIndex, int numSamples) const;
+    Point3 lowDiscrepancyAreaPosition(int pixelIndex, int lightIndex, int sampleIndex, int numSamples) const;
+
+    Point3 stratifiedAreaPosition(int pixelIndex, int sampleIndex, int numSamples) const;
+
+    Point3 uniformAreaPosition() const;
+
+    /** Low-discrepancy distributed positions on the solid angle subtended by the light
+        relative to the samplePosition, based on screen pixel and light index.
+        The sequence is unique for each pixel and lightIndex. It repeats every numSamples.
+        Does not include the areaLightPullback. Returns probability in w channel.
+        \sa randomPosition
+    */
+    Point3 lowDiscrepancySolidAnglePosition(int pixelIndex, int lightIndex, int sampleIndex, int numSamples, const Point3& X, float& areaTimesPDFValue) const;
+
+    /** Helper function to generate low-discrepancy sample points in 2D. */
+    Point2  lowDiscrepancySample(int pixelIndex, int lightIndex, int sampleIndex, int numSamples) const;
+
 
     /** Does not include the areaLightPullback.
         \sa lowDiscrepancyPosition, position */

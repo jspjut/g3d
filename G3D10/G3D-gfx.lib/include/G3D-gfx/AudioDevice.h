@@ -171,8 +171,15 @@ public:
         \param enableSound If false, then AudioDevice exists but no sounds will play and FMOD is not initialized.
         This is convenient for debugging a program that uses sound, so that Sound objects can still be instantiated
         but no disk access or sound-related performance delays will occur.
+
+        \param bufferLength Length of DSP buffer to use. Affects latency and 1024 is the default from FMOD. FMOD
+        claims that the default results in 21.33 ms of latency at 48 khz (1024 / 48000 * 1000 = 21.33). FMOD warns
+        that bufferlength is generally best left alone.
+
+        \param numBuffers Number of DSP buffers to use. Default from FMOD is 4. Similar to bufferLength, FMOD warns
+        against changing this value.
         */
-    void init(bool enableSound = true, int numVirtualChannels = 1000);
+    void init(bool enableSound = true, int numVirtualChannels = 1000, unsigned int bufferLength = 1024, int numBuffers = 4);
 
     /** Destroys all Sounds and AudioChannels and shuts down the FMOD library. */
     void cleanup();

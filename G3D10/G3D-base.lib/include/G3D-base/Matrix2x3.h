@@ -54,6 +54,12 @@ public:
         elt[1][0] = r2c1; elt[1][1] = r2c2; elt[1][2] = r2c3;
     }
 
+
+    /** Must be in one of the following forms:
+        - Matrix3(#, #, # .... #)
+    */
+    Matrix2x3(const Any& any);
+
     Matrix2x3(DoNotInitialize dni) {}
 
     /**
