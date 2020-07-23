@@ -1,0 +1,29 @@
+# ignore large directories inside of G3D10
+/G3D10/external
+/G3D10/doc-files
+/G3D10/graveyard
+/G3D10/scratch
+# these samples aren't really G3D samples, they're stand alone
+/G3D10/samples/minimalVulkan
+/G3D10/samples/minimalOpenGL
+# this model isn't likely to change, and is data anyway
+/G3D10/data-files/model/vr
+
+# not sure if this needs to be ignored
+/G3D10/temp
+
+# ignore build artifacts
+/G3D10/build
+/G3D10/msbuild.log
+/G3D10/VisualStudio/x64
+
+# ignore G3D logs
+log.txt
+g3d-license.txt
+
+# ignore svn root level directories
+/.svn
+/data10
+/external
+/www
+/index.html
