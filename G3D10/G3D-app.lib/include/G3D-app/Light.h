@@ -390,6 +390,7 @@ public:
     /** Low-discrepancy distributed positions on the light based on screen pixel and light index.
         The sequence is unique for each pixel and lightIndex. It repeats every numSamples.
         Does not include the areaLightPullback.
+
         \sa randomPosition
       */
     Vector4 lowDiscrepancyPosition(int pixelIndex, int lightIndex, int sampleIndex, int numSamples) const;

@@ -269,6 +269,7 @@ Vector4 Light::lowDiscrepancyPosition(int pixelIndex, int lightIndex, int sample
     const uint32_t hash = superFastHash(&f, 2 * sizeof(int));
     const Point2 shift((hash >> 16) * (1.0f / float(0xFFFF)), (hash & 0xFFFF) * (1.0f / float(0xFFFF)));
     const Point2& h = (Point2::hammersleySequence2D(sampleIndex, numSamples) + shift).mod1();
+
     return position(h.x * 2.0f - 1.0f, h.y * 2.0f - 1.0f);
 }
 

@@ -180,6 +180,14 @@ static bool visibleAreaLight(const shared_ptr<Light>& light) {
     return (light->type() == Light::Type::AREA) && light->visible();
 }
 
+
+Point3 PathTracer::sampleOneLight(const shared_ptr<Light>& light, const Point3& X, const Vector3& n, int pixelIndex, int lightIndex, int sampleIndex, int numSamples, float& areaTimesPDFValue) const {
+    areaTimesPDFValue = 1.0f;
+    // To add angular sampling, just switch which function is called here:
+    return light->lowDiscrepancyPosition(pixelIndex, lightIndex, sampleIndex, numSamples).xyz();
+}
+
+
 const shared_ptr<Light>& PathTracer::importanceSampleLight
 (const Array<shared_ptr<Light>>&             lightArray,
  const Vector3&                              w_o,
@@ -197,11 +205,12 @@ const shared_ptr<Light>& PathTracer::importanceSampleLight
     const shared_ptr<Light>& light0 = lightArray[0];
     if (lightArray.size() == 1) {
         // There is only one light, so of course we will sample it
-        const Point3& Y = light0->lowDiscrepancyPosition(sequenceIndex, 0, rayIndex, raysPerPixel).xyz();
+        float areaTimesPDFValue;
+        const Point3& Y = sampleOneLight(light0, X, n, sequenceIndex, 0, rayIndex, raysPerPixel, areaTimesPDFValue).xyz();
 
         lightPosition = Y;
         const Vector3& w_i = (lightPosition - X).direction();  
-        biradiance = light0->biradiance(X, lightPosition);
+        biradiance = light0->biradiance(X, lightPosition) / areaTimesPDFValue;
         const Color3& f = surfel->finiteScatteringDensity(w_i, w_o);
         debugAssertM(biradiance.min() >= 0.0f, "Negative biradiance for light");
         debugAssertM(f.min() >= 0.0f, "Negative finiteScatteringDensity");
@@ -231,11 +240,14 @@ const shared_ptr<Light>& PathTracer::importanceSampleLight
         for (int j = 0; j < lightArray.size(); ++j) {
             const shared_ptr<Light>& light = lightArray[j];
           
-            const Point3& Y = light->lowDiscrepancyPosition(sequenceIndex, j, rayIndex, raysPerPixel).xyz();
+            // Add : return areaTimesPDFValue
+            float areaTimesPDFValue;
+            const Point3& Y = sampleOneLight(light, X, n, sequenceIndex, j, rayIndex, raysPerPixel, areaTimesPDFValue).xyz();
             lightPositionArray[j] = Y;
             const Vector3& w_i = (Y - X).direction();
 
-            Biradiance3 B = light->biradiance(X, Y);
+            // Add: divide by areaTimesPDFValue
+            Biradiance3 B = light->biradiance(X, Y) / areaTimesPDFValue;
 
             // If the light casts nonzero energy towards this point across all color channels...
             if (B.sum() > 0.0f) {

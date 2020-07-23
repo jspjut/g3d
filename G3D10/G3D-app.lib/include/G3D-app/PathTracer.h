@@ -166,6 +166,19 @@ protected:
 
     Radiance3 skyRadiance(const Vector3& direction) const;
 
+    /**
+     Sample a single light and choose a point on it, potentially in a low-discrepancy or importance sampling way.
+
+      \a areaTimesPDFValue Return value that is the area of the light times the differential probability with which
+       each point was selected.For uniform selection, this value is just 1.0f.
+
+       \a X the point from which the light will be viewed. Set to Point3::NaN to ignore.
+       \a n the surface normal at X. Set to Point3::NaN to ignore.
+
+      \sa Light::lowDiscrepancyPosition
+    */
+    Point3 sampleOneLight(const shared_ptr<Light>& light, const Point3& X, const Vector3& n, int pixelIndex, int lightIndex, int sampleIndex, int numSamples, float& areaTimesPDFValue) const;
+
     /** Produces a buffer of eye rays, stored in raster order in the preallocated rayBuffer. 
         \param castThroughCenter When true (for the first ray at each pixel), cast the ray through
                the pixel center to make images look less noisy.

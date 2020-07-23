@@ -71,7 +71,7 @@ OSWindow::Settings::Settings() :
 
 const shared_ptr<Framebuffer>& OSWindow::framebuffer() const {
     if (isNull(m_framebuffer)) {
-        m_framebuffer = shared_ptr<Framebuffer>(new Framebuffer("OpenGL Hardware Framebuffer", GL_ZERO));
+        m_framebuffer = Framebuffer::createShared<Framebuffer>("OpenGL Hardware Framebuffer", GL_ZERO);
         m_framebuffer->m_window = const_cast<OSWindow*>(this);
     }
 
@@ -102,7 +102,7 @@ Vector2 OSWindow::virtualDisplaySize() {
 #   ifdef G3D_WINDOWS
         return WINDOWS_CLASS::virtualDisplaySize();
 #   else
-    return GLFWWindow::virtualDisplaySize();
+        return GLFWWindow::virtualDisplaySize();
 #   endif
 }
 
