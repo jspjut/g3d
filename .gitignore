@@ -18,6 +18,8 @@
 /G3D10/build
 /G3D10/msbuild.log
 /G3D10/VisualStudio/x64
+/G3D10/G3D-base.lib/include/G3D-base/ImageFormat.h
+/G3D10/G3D-base.lib/source/ImageFormat.cpp
 /**/x64/
 *.pyc
 .vs
