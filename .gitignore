@@ -16,7 +16,9 @@
 /G3D10/build
 /G3D10/msbuild.log
 /G3D10/VisualStudio/x64
+/**/x64/
 *.pyc
+.vs
 
 # ignore G3D logs
 log.txt
