@@ -272,7 +272,7 @@ protected:
     /** Compute the next bounce direction by mutating rayBuffer, and then multiply the modulationBuffer by
         the inverse probability density that the direction was taken. Those probabilities are computed across
         three color channels, so modulationBuffer can become "colored" by this. */
-    void scatterRays
+    virtual void scatterRays
        (const Array<shared_ptr<Surfel>>&        surfelBuffer, 
         const Array<shared_ptr<Light>>&         indirectLightArray,
         int                                     currentPathDepth,

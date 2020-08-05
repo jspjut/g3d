@@ -58,7 +58,7 @@ void AudioDevice::init(bool enable, int numVirtualChannels, unsigned int bufferL
         alwaysAssertM(version >= FMOD_VERSION, format("FMOD lib version %08x doesn't match header version %08x", version, FMOD_VERSION));
 
         m_fmodSystem->setDSPBufferSize(bufferLength, numBuffers);
-            
+        
         void* extradriverdata = nullptr;
         result = m_fmodSystem->init(numVirtualChannels, FMOD_INIT_NORMAL | FMOD_INIT_3D_RIGHTHANDED, extradriverdata);
 

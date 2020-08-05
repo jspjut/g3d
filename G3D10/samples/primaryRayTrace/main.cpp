@@ -22,7 +22,9 @@ private:
     }
 
 public:
-    App(const GApp::Settings& settings) : GApp(settings) { m_triTree = TriTree::create(true); }
+    App(const GApp::Settings& settings) : GApp(settings) { 
+        m_triTree = TriTree::create(); 
+    }
     virtual void onInit() override;
     virtual void onGraphics3D(RenderDevice* rd, Array<shared_ptr<Surface> >& surface3D) override;
     virtual void onAfterLoadScene(const Any& any, const String& sceneName) override;
@@ -103,9 +105,6 @@ void App::onGraphics3D(RenderDevice* rd, Array<shared_ptr<Surface> >& surface3D)
     m_gbuffer->texture(GBuffer::Field::GLOSSY)->update(m_outBuffers[m_frameIdx][3]);
     m_gbuffer->texture(GBuffer::Field::EMISSIVE)->update(m_outBuffers[m_frameIdx][4]);
     
-    //TODO: restore
-    //m_frameIdx = 1 - m_frameIdx;
-
     //////////////////////////////////////////////////////////////////////////////////
     // Compute shadow maps
     Light::renderShadowMaps(rd, scene()->lightingEnvironment().lightArray, surface3D);

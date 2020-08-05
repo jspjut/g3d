@@ -536,7 +536,7 @@ protected:
             away--those warnings are annoying when temporarily commenting
             out code.   
           */
-        void addVertexAttributesFromSource(const Array<PreprocessedShaderSource>& preprocessedSource);
+        void addVertexAttributesFromSource(const Array<PreprocessedShaderSource>& preprocessedSource, const Args& args);
 
         /** 
             Finds any uniform variables in the code for all shader stages that are not already

@@ -148,7 +148,7 @@ protected:
             const int N = m_cpuImage->width() * m_cpuImage->height();
             for (int i = 0; i < N; ++i) {
                 m_min  = m_min.min(ptr[i]);
-                m_max  = m_max.min(ptr[i]);
+                m_max  = m_max.max(ptr[i]);
                 sum   += typename Image::ComputeType(ptr[i]);
             }
             m_mean = sum / (float)N;

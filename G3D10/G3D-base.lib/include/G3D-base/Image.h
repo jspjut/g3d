@@ -292,6 +292,32 @@ img.forEachPixel(std::bind<tracePixel, this>);
             }, !multiThread);
     }
 
+    template<typename ColorType>
+    void forEachPixel(std::function<void(ColorType src, Point2int32 coord)> callback,
+        bool multiThread =
+#ifdef G3D_DEBUG
+        false
+#else
+        true
+#endif
+    ) const {
+        runConcurrently(Point2int32(0, 0), Point2int32(width(), height()), [&](Point2int32 coord) {
+            callback(get<ColorType>(coord), coord);
+            }, !multiThread);
+    }
+
+    template<typename ColorType>
+    void forEachPixel(std::function<void(Point2int32 coord)> callback,
+        bool multiThread =
+#ifdef G3D_DEBUG
+        false
+#else
+        true
+#endif
+    ) const {
+        runConcurrently(Point2int32(0, 0), Point2int32(width(), height()), callback, !multiThread);
+    }
+
 
     template<typename ColorType>
     void forEachPixel(std::function<ColorType (Point2int32 coord)> callback,

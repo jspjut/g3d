@@ -82,9 +82,14 @@ void App::makeGUI() {
     optionsPane->pack();
 
     advancedPane->setNewChildSize(400, -1, 150);
-    advancedPane->addNumberBox("Max importance", &m_options.maxImportanceSamplingWeight, "", GuiTheme::LOG_SLIDER, 0.5f, 100.0f);
-    advancedPane->addNumberBox("Max incident radiance", &m_options.maxIncidentRadiance, "W/(m^2 sr)", GuiTheme::LOG_SLIDER, 1.0f, 1e6f);        
-    advancedPane->addNumberBox("Direct illumination fraction", &m_options.areaLightDirectFraction, "", GuiTheme::LINEAR_SLIDER, 0.0f, 1.0f);
+    GuiNumberBox<float>* importanceBox = advancedPane->addNumberBox("Max importance", &m_options.maxImportanceSamplingWeight, "", GuiTheme::LOG_SLIDER, 0.5f, 100.0f);
+    advancedPane->addNumberBox("Max incident radiance", &m_options.maxIncidentRadiance, "W/(m^2 sr)", GuiTheme::LOG_SLIDER, 1.0f, 1e6f);
+    GuiPane* directPane = advancedPane->addPane("Direct Illumination (Area Lights)");
+    directPane->setNewChildSize(400, -1, 100);
+    directPane->addNumberBox("Next Event Estimation fraction", &m_options.areaLightDirectFraction, "", GuiTheme::LINEAR_SLIDER, 0.0f, 1.0f)->setCaptionWidth(200);
+    directPane->addEnumClassRadioButtons("Sampling Method", Pointer<PathTracer::Options::LightSamplingMethod>(&m_options.samplingMethod), GuiTheme::TOOL_RADIO_BUTTON_STYLE);
+    directPane->moveRightOf(importanceBox);
+    directPane->moveBy(0, 10);
     b = advancedPane->addButton("Render Convergence", this, &App::onRenderConvergence);
     advancedPane->addButton("Render All Scenes", this, &App::onBatchRender)->moveRightOf(b);
     advancedPane->pack();

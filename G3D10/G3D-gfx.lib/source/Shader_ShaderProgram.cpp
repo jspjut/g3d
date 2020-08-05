@@ -128,7 +128,7 @@ void Shader::ShaderProgram::init(const Array<PreprocessedShaderSource>& pss, con
     if (ok) {
         addActiveAttributesFromProgram();
         debugAssertGLOk();
-        addVertexAttributesFromSource(pss);
+        addVertexAttributesFromSource(pss, args);
         debugAssertGLOk();
     }
     debugAssertGLOk();
@@ -396,7 +396,7 @@ GLenum Shader::ShaderProgram::getDeclarationType(TextInput& ti, bool& uniform) {
 }
 
             
-void Shader::ShaderProgram::addVertexAttributesFromSource(const Array<PreprocessedShaderSource>& preprocessedSource) {
+void Shader::ShaderProgram::addVertexAttributesFromSource(const Array<PreprocessedShaderSource>& preprocessedSource, const Args& args) {
     
     const String& code = preprocessedSource[VERTEX].preprocessedCode;
 
@@ -404,6 +404,7 @@ void Shader::ShaderProgram::addVertexAttributesFromSource(const Array<Preprocess
     settings.simpleFloatSpecials = false;
     TextInput ti(TextInput::FROM_STRING, code, settings);
 
+    // TODO: change first thing on the line to first thing after a semicolon
     while (ti.hasMore()) {
         Token nextToken = ti.peek();
         if ((nextToken.type() == Token::SYMBOL) && (nextToken.string() != "#")) {
@@ -418,10 +419,10 @@ void Shader::ShaderProgram::addVertexAttributesFromSource(const Array<Preprocess
                     int elementNum = -1;
                     if ((ti.peek().type() == Token::SYMBOL) && (ti.peek().string() == "[")) {
                         ti.readSymbol("[");
-                        // The brackets might be empty, or might be a macro. In the second case, no way to set
-                        // elementNum correctly without running the preprocessor again.
+                        // The brackets might be empty, or might be a macro.
                         if (ti.peek().string() != "]") {
-                            elementNum = (int)ti.readNumber();
+                            parseTokenIntoIntegerLiteral(ti.read(), args, elementNum);
+                            //elementNum = (int)ti.readNumber();
                         }
                         ti.readSymbol("]");
                     }
