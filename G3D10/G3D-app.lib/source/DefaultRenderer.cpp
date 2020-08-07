@@ -564,6 +564,7 @@ void DefaultRenderer::sampleArbitraryRays
 
     shared_ptr<Texture> rayOriginsAndDirections[2] = { rayOrigins, rayDirections };
 
+    BEGIN_PROFILER_EVENT("Cache Ray Textures");
     for (int i = 0; i < 2; ++i) {
         const shared_ptr<Texture>& rayTexture = rayOriginsAndDirections[i];
         if (!m_rayOriginsAndDirectionsTable.containsKey(rayTexture)) {
@@ -575,6 +576,7 @@ void DefaultRenderer::sampleArbitraryRays
 
         rayTexture->toPixelTransferBuffer(m_rayOriginsAndDirectionsTable[rayTexture]);
     }
+    END_PROFILER_EVENT();
 
     const shared_ptr<GLPixelTransferBuffer>& rayOriginsBuffer = m_rayOriginsAndDirectionsTable[rayOrigins];
     const shared_ptr<GLPixelTransferBuffer>& rayDirectionsBuffer = m_rayOriginsAndDirectionsTable[rayDirections];
@@ -608,32 +610,6 @@ void DefaultRenderer::sampleArbitraryRays
     tritree->intersectRays(rayOriginsBuffer, rayDirectionsBuffer, m_pboGBuffer, traceOptions, nullptr, mipLevel, wavefrontDimensions, visibilityMask);
     END_PROFILER_EVENT();
 
-    // Add distance (negated to encode a backface hit) in the w channel of position
-    Vector4* positionsPtr      = (Vector4*)m_pboGBuffer[0]->mapReadWrite();
-    Vector4* normalsPtr        = (Vector4*)m_pboGBuffer[1]->mapRead();
-    Vector4* rayOriginsPtr     = (Vector4*)rayOriginsBuffer->mapRead();
-    Vector4* rayDirectionsPtr  = (Vector4*)rayDirectionsBuffer->mapRead();
-
-    runConcurrently(0, wavefrontDimensions.x * wavefrontDimensions.y, [&](int i) {
-        float distance = (positionsPtr[i].xyz() - rayOriginsPtr[i].xyz()).length();
-        if (normalsPtr[i].xyz().dot(rayDirectionsPtr[i].xyz()) > 0.0f) {
-            // Backface hit
-            distance *= -1.0f;
-        }
-        //debugAssertM(sign(distance) == sign(positionsPtr[i].w), "Failed to match TriTree reported backface hit.");
-        positionsPtr[i] = Vector4(positionsPtr[i].xyz(), distance);
-    });
-
-
-    m_pboGBuffer[0]->unmap();
-    positionsPtr = nullptr;
-    m_pboGBuffer[1]->unmap();
-    normalsPtr = nullptr;
-    rayOriginsBuffer->unmap();
-    rayOriginsPtr = nullptr;
-    rayDirectionsBuffer->unmap();
-    rayDirectionsPtr = nullptr;
-
     BEGIN_PROFILER_EVENT("Copy results to GBuffer");
     // Diffuse buffer, or ray trace enabled and on the ray trace buffer
     // Update the GBuffer
@@ -642,6 +618,30 @@ void DefaultRenderer::sampleArbitraryRays
     gbuffer->texture(GBuffer::Field::LAMBERTIAN)->update(m_pboGBuffer[2], 0, CubeFace::POS_X, true, 0, false);
     gbuffer->texture(GBuffer::Field::GLOSSY)->update(m_pboGBuffer[3], 0, CubeFace::POS_X, true, 0, false);
     gbuffer->texture(GBuffer::Field::EMISSIVE)->update(m_pboGBuffer[4], 0, CubeFace::POS_X, true, 0, false);
+    END_PROFILER_EVENT();
+
+    // Compute and writeout distance to intersection, with backface encoded in the sign bit.
+    // Used by DDGI.
+    BEGIN_PROFILER_EVENT("Compute DDGI Distance encoding");
+    {
+        Args args;
+
+        // Read only buffers
+        args.setImageUniform("rayOriginsImage", rayOrigins, Access::READ);
+        args.setImageUniform("rayDirectionsImage", rayDirections, Access::READ);
+        args.setImageUniform("normalsImage", gbuffer->texture(GBuffer::Field::WS_NORMAL), Access::READ);
+        
+        // Position buffer to be modified.
+        args.setImageUniform("positionsImage", gbuffer->texture(GBuffer::Field::WS_POSITION), Access::READ_WRITE);
+
+        args.setComputeGroupSize(Vector3int32(16, 16, 1));
+        args.setComputeGridDim(Vector3int32( iCeil((float)wavefrontDimensions.x / 16.0f), iCeil((float)wavefrontDimensions.y / 16.0f), 1));
+
+        args.setUniform("gridSize", wavefrontDimensions);
+
+        LAUNCH_SHADER("DDGIVolume/DDGIVolume_EncodeDDGIDistance.glc", args);
+    
+    }
     END_PROFILER_EVENT();
 }
 

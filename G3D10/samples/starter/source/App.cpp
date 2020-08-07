@@ -98,56 +98,6 @@ void App::onInit() {
     // Make the GUI after the scene is loaded because loading/rendering/simulation initialize
     // some variables that advanced GUIs may wish to reference with pointers.
     makeGUI();
-
-    
-
-    //shared_ptr<ArticulatedModel>& groundModelPtr = dynamic_pointer_cast<ArticulatedModel>(scene()->modelTable()["groundModel"].resolve());
-
-    class SetMatToRedCallback : public ArticulatedModel::MeshCallback {
-        shared_ptr<UniversalMaterial> redMaterial;
-
-        // Create 4kx4k, RGBA32F red texture
-        void createRedMaterial() {
-            const int TEX_SIZE = 4096;
-
-            std::vector<Vector4> redVec(TEX_SIZE * TEX_SIZE, Vector4(1.0f, 0.0f, 0.0f, 1.0f));
-
-            shared_ptr<GLPixelTransferBuffer> redBuffer = GLPixelTransferBuffer::create(TEX_SIZE, TEX_SIZE, ImageFormat::RGBA32F(), redVec.data());
-
-            static shared_ptr<Texture> redTexture = Texture::fromPixelTransferBuffer("Red", redBuffer);
-
-            UniversalMaterial::Specification spec;
-            spec.setLambertian(redTexture);
-            redMaterial = UniversalMaterial::create(spec);
-        }
-
-    public:
-        void operator()(shared_ptr<ArticulatedModel> model, ArticulatedModel::Mesh* mesh) {
-            if (isNull(redMaterial)) {
-                createRedMaterial();
-            }
-            mesh->material = redMaterial;
-        }
-
-    };
-
-    // TODO: restore for testing texture
-    //SetMatToRedCallback cb;
-    //groundModelPtr->forEachMesh(cb);
-
-    // For higher-quality screenshots:
-    // developerWindow->videoRecordDialog->setScreenShotFormat("PNG");
-    // developerWindow->videoRecordDialog->setCaptureGui(false);
-    
-    // Example of changing the G-buffer specification:
-    // m_gbufferSpecification.encoding[GBuffer::Field::TEXCOORD0] = ImageFormat::RG16F();
-
-    // Example of programmatically pausing simulation:
-    // developerWindow->sceneEditorWindow->setSimulationPaused(true);
-
-    // Example of programmatically showing a texture browser for debugging
-    // showInTextureBrowser("G3D::GBuffer/GLOSSY");
-
 }
 
 

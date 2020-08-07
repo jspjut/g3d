@@ -326,7 +326,6 @@ void TriTreeBase::intersectRays
 
 			((Vector4*)resultPtr[0])[i] = Vector4(surfel->position, 1.0f);
 			((Vector4*)resultPtr[1])[i] = Vector4(surfel->shadingNormal, 0.0f);
-            // TODO: restore
 			((Vector4uint8*)resultPtr[2])[i] = Vector4uint8(Vector4(255.0f * Color4(surfel->lambertianReflectivity, 1.0f)));
 			((Vector4uint8*)resultPtr[3])[i] = Vector4uint8(Vector4(255.0f * Color4(surfel->glossyReflectionCoefficient, surfel->smoothness)));
 			((Vector4*)resultPtr[4])[i] = Color4(surfel->emission, 1.0f);
