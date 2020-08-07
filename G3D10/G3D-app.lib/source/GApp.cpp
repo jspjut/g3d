@@ -402,6 +402,7 @@ void GApp::initializeOpenGL(RenderDevice* rd, OSWindow* window, bool createWindo
     m_gbufferSpecification.depthEncoding = DepthEncoding::HYPERBOLIC;
 
     m_renderer = (settings.renderer.factory != nullptr) ? settings.renderer.factory() : DefaultRenderer::create();
+
     const shared_ptr<DefaultRenderer>& defaultRenderer = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
 
     if (settings.renderer.deferredShading && notNull(defaultRenderer)) {
@@ -930,7 +931,8 @@ void GApp::loadScene(const String& sceneName) {
             setActiveCamera(scene()->defaultCamera());
         }
         // Re-insert the active camera marker
-        scene()->insert(m_activeCameraMarker);        
+        scene()->insert(m_activeCameraMarker);
+
         onAfterLoadScene(any, sceneName);
 
     } catch (const ParseError& e) {
@@ -1453,6 +1455,7 @@ void GApp::swapBuffers() {
 
 void GApp::drawDebugShapes() {
     BEGIN_PROFILER_EVENT("GApp::drawDebugShapes");
+
     renderDevice->setObjectToWorldMatrix(CFrame());
 
     if (debugShapeArray.size() > 0) {
@@ -1564,6 +1567,13 @@ void GApp::onSimulation(RealTime rdt, SimTime sdt, SimTime idt) {
     }
 
     if (scene()) { scene()->onSimulation(sdt); }
+
+    // If our renderer is (a subclass of) DefaultRenderer...
+    const shared_ptr<DefaultRenderer>& defaultRenderer = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
+    if (notNull(defaultRenderer)) {
+        // ...update the dynamic diffuse GI
+        defaultRenderer->updateDiffuseGI(renderDevice, scene(), m_gbuffer, activeCamera());
+    }
 }
 
 

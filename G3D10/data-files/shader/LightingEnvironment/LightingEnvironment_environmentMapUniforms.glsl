@@ -105,9 +105,9 @@ Radiance3 computeIndirectLighting(UniversalMaterialSample surfel, Vector3 w_o, c
         lambertianAmbient += surfel.lightMapRadiance;
     }
 
-    Color3 lambertianColor = (1.0 - F) * surfel.lambertianReflectivity * invPi;
+    Color3 lambertianColor = square(1.0 - F) * surfel.lambertianReflectivity * invPi;
 
-    return lambertianAmbient * lambertianColor * (1 - F) + F * glossyAmbient;
+    return lambertianAmbient * lambertianColor + F * glossyAmbient;
 }
 
 #endif

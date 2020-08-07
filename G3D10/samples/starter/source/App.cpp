@@ -56,7 +56,6 @@ int main(int argc, const char* argv[]) {
     settings.screenCapture.includeG3DRevision = false;
     settings.screenCapture.filenamePrefix = "_";
 
-
     return App(settings).run();
 }
 
@@ -81,9 +80,16 @@ void App::onInit() {
     loadScene(
 
 #       ifndef G3D_DEBUG
-            "G3D Sponza"
+        //"G3D Sponza"
+        //"G3D Veach Door"
+        "G3D Simple Cornell Box (Mirror)"
+        //"G3D Simple Cornell Box (Area Light)" // Load something simple
+        //"G3D Bistro Exterior (Night)"
+        //"G3D Simple Texture"
 #       else
-            "G3D Simple Cornell Box (Area Light)" // Load something simple
+        //"G3D Veach Door"
+            //"G3D Simple Cornell Box (Area Light)" // Load something simple
+            "G3D Simple Cornell Box (Mirror)" // Load something simple
 #       endif
 //        "G3D Debug Transparency"
         //developerWindow->sceneEditorWindow->selectedSceneName()  // Load the first scene encountered 
@@ -92,6 +98,42 @@ void App::onInit() {
     // Make the GUI after the scene is loaded because loading/rendering/simulation initialize
     // some variables that advanced GUIs may wish to reference with pointers.
     makeGUI();
+
+    
+
+    //shared_ptr<ArticulatedModel>& groundModelPtr = dynamic_pointer_cast<ArticulatedModel>(scene()->modelTable()["groundModel"].resolve());
+
+    class SetMatToRedCallback : public ArticulatedModel::MeshCallback {
+        shared_ptr<UniversalMaterial> redMaterial;
+
+        // Create 4kx4k, RGBA32F red texture
+        void createRedMaterial() {
+            const int TEX_SIZE = 4096;
+
+            std::vector<Vector4> redVec(TEX_SIZE * TEX_SIZE, Vector4(1.0f, 0.0f, 0.0f, 1.0f));
+
+            shared_ptr<GLPixelTransferBuffer> redBuffer = GLPixelTransferBuffer::create(TEX_SIZE, TEX_SIZE, ImageFormat::RGBA32F(), redVec.data());
+
+            static shared_ptr<Texture> redTexture = Texture::fromPixelTransferBuffer("Red", redBuffer);
+
+            UniversalMaterial::Specification spec;
+            spec.setLambertian(redTexture);
+            redMaterial = UniversalMaterial::create(spec);
+        }
+
+    public:
+        void operator()(shared_ptr<ArticulatedModel> model, ArticulatedModel::Mesh* mesh) {
+            if (isNull(redMaterial)) {
+                createRedMaterial();
+            }
+            mesh->material = redMaterial;
+        }
+
+    };
+
+    // TODO: restore for testing texture
+    //SetMatToRedCallback cb;
+    //groundModelPtr->forEachMesh(cb);
 
     // For higher-quality screenshots:
     // developerWindow->videoRecordDialog->setScreenShotFormat("PNG");
@@ -125,7 +167,7 @@ void App::makeGUI() {
 
     // showInTextureBrowser("G3D::GBuffer/CS_NORMAL");
 
-    rendererPane->addCheckBox("Deferred Shading",
+    GuiCheckBox* deferredBox = rendererPane->addCheckBox("Deferred Shading",
         Pointer<bool>([&]() {
                 const shared_ptr<DefaultRenderer>& r = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
                 return r && r->deferredShading();
@@ -143,6 +185,50 @@ void App::makeGUI() {
                 const shared_ptr<DefaultRenderer>& r = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
                 if (r) { r->setOrderIndependentTransparency(b); }
             }));
+
+    GuiPane* giPane = rendererPane->addPane("Raytraced GI", GuiTheme::SIMPLE_PANE_STYLE);
+	giPane->addCheckBox("Diffuse",
+		Pointer<bool>([&]() {
+			const shared_ptr<DefaultRenderer>& r = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
+			return r && r->enableDiffuseGI();
+			},
+			[&](bool b) {
+				const shared_ptr<DefaultRenderer>& r = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
+				if (r) { r->setEnableDiffuseGI(b); }
+			}));
+    giPane->addCheckBox("Glossy",
+        Pointer<bool>([&]() {
+            const shared_ptr<DefaultRenderer>& r = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
+            return r && r->enableGlossyGI();
+            },
+            [&](bool b) {
+                const shared_ptr<DefaultRenderer>& r = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
+                if (r) { r->setEnableGlossyGI(b); }
+            }));
+    giPane->addCheckBox("Show Probes",
+        Pointer<bool>([&]() {
+            const shared_ptr<DefaultRenderer>& r = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
+            if (notNull(r)) {
+                bool allEnabled = r->m_ddgiVolumeArray.size() > 0;
+                for (int i = 0; i < r->m_ddgiVolumeArray.size(); ++i) {
+                    allEnabled = allEnabled && r->m_showProbeLocations[i];
+                }
+                return allEnabled;
+            }
+            return false;
+            },
+            [&](bool b) {
+                const shared_ptr<DefaultRenderer>& r = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
+                if (notNull(r)) {
+                    for (int i = 0; i < r->m_ddgiVolumeArray.size(); ++i) {
+                        r->m_showProbeLocations[i] = b;
+                    }
+                }
+            }), GuiTheme::TOOL_CHECK_BOX_STYLE);
+
+    giPane->moveRightOf(deferredBox);
+    giPane->moveBy(100, 0);
+
     rendererPane->moveRightOf(infoPane);
     rendererPane->moveBy(10, 0);
 
@@ -186,7 +272,8 @@ void App::onGraphics3D(RenderDevice* rd, Array<shared_ptr<Surface> >& allSurface
         m_framebuffer,
         scene()->lightingEnvironment().ambientOcclusionSettings.enabled ? m_depthPeelFramebuffer : nullptr,
         scene()->lightingEnvironment(), m_gbuffer,
-        allSurfaces);
+        allSurfaces,
+        scene()->tritree());
    
     // Debug visualizations and post-process effects
     rd->pushState(m_framebuffer); {
@@ -287,4 +374,26 @@ void App::onGraphics2D(RenderDevice* rd, Array<shared_ptr<Surface2D> >& posed2D)
 void App::onCleanup() {
     // Called after the application loop ends.  Place a majority of cleanup code
     // here instead of in the constructor so that exceptions can be caught.
+}
+
+void App::drawDebugShapes() {
+    GApp::drawDebugShapes();
+
+    const shared_ptr<DefaultRenderer>& defaultRenderer = dynamic_pointer_cast<DefaultRenderer>(m_renderer);
+
+    if (isNull(defaultRenderer)) {
+        return;
+    }
+
+    const Array<shared_ptr<DDGIVolume>>& volumeArray = scene()->lightingEnvironment().ddgiVolumeArray;
+
+    // Draw debug shapes for the DDGIVolume.
+    for (int i = 0; i < volumeArray.size(); ++i) {
+        if (defaultRenderer->m_showProbeLocations[i]) {
+            // TODO: enable probe visualization radius.
+            float radius = 0.1f;
+            // TODO: enable depth visualization from second to last parameter.
+            defaultRenderer->m_ddgiVolumeArray[i]->debugRenderProbeVisualization(renderDevice, activeCamera(), false, radius);
+        }
+    }
 }

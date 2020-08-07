@@ -88,6 +88,17 @@ void Scene::setSceneSearchPaths(const Array<String>& paths) {
     searchPaths.copyFrom(paths);
 }
 
+const shared_ptr<TriTree>& Scene::tritree() {
+    if (isNull(m_triTree)) {
+        // Will attempt to create a GPU tritree by default.
+        m_triTree = TriTree::create();
+    }
+
+	// No-op if no changes, safe to call repeatedly.
+	m_triTree->setContents(dynamic_pointer_cast<Scene>(shared_from_this()));
+	return m_triTree;
+}
+
 static void appendDefaultSearchPaths() {
     // Add the current directory
     searchPaths.append(".");  

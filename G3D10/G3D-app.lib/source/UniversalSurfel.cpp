@@ -30,7 +30,7 @@ shared_ptr<UniversalSurfel> UniversalSurfel::createEmissive(const Radiance3 emis
 }
 
     
-void UniversalSurfel::sample(const Tri& tri, float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backside, const UniversalMaterial* universalMaterial, float du, float dv) {
+void UniversalSurfel::sample(const Tri& tri, float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backside, const UniversalMaterial* universalMaterial, float du, float dv, bool twoSided) {
     // TODO: MIP-map
     source.index = triIndex;
     source.u = u;
@@ -78,9 +78,13 @@ void UniversalSurfel::sample(const Tri& tri, float u, float v, int triIndex, con
     const shared_ptr<UniversalBSDF>& bsdf = universalMaterial->bsdf();    
 
     if (backside) {
-        // Swap the normal direction here before we compute values relative to it
-        interpolatedNormal = -interpolatedNormal;
-        geometricNormal = -geometricNormal;
+
+        // If the surface is two-sided, swap the normal direction
+        // before we compute values relative to it.
+        if (twoSided) {
+            interpolatedNormal = -interpolatedNormal;
+            geometricNormal = -geometricNormal;
+        }
 
         // Swap sides
         etaRatio = bsdf->etaTransmit() / bsdf->etaReflect();

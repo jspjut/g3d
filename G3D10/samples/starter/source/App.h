@@ -7,9 +7,11 @@
 #pragma once
 #include <G3D/G3D.h>
 
+
 /** \brief Application framework. */
 class App : public GApp {
 protected:
+
 
     /** Called from onInit */
     void makeGUI();
@@ -33,4 +35,6 @@ public:
     virtual bool onEvent(const GEvent& e) override;
     virtual void onUserInput(UserInput* ui) override;
     virtual void onCleanup() override;
+
+    virtual void drawDebugShapes() override;
 };

@@ -11,6 +11,8 @@
 
 #include "G3D-base/platform.h"
 #include "G3D-app/Renderer.h"
+#include "G3D-app/DDGIVolume.h"
+#include "G3D-app/GaussianMIPFilter.h"
 
 namespace G3D {
 
@@ -28,7 +30,7 @@ Renderer::render(all) {
     visible, requireForward, requireBlended = cullAndSort(all)
     renderGBuffer(visible)
     computeShadowing(all)
-    if (deferredShading()) { renderDeferredShading()  }
+    if (deferredShading()) { renderIndirectIllumination(); renderDeferredShading()  }
     renderOpaqueSamples(deferredShading() ? requireForward : visible)
     lighting.updateColorImage() // For the next frame
     renderOpaqueScreenSpaceRefractingSamples(deferredShading() ? requireForward : visible)
@@ -47,6 +49,90 @@ Renderer::render(all) {
 */
 class DefaultRenderer : public Renderer {
 protected:
+
+    /** For computing blurred mirror reflections to approximate gathered
+        glossy reflections. The mip levels are progressively blurred versions. */
+    shared_ptr<Framebuffer>                 m_blurredMIPReflectionFramebuffer;
+
+    /** Only used when half-resolution glossy is in effect. Otherwise, we render straight into
+        m_blurredMIPReflectionFramebuffer*/
+    shared_ptr<Framebuffer>                 m_shadedMirrorRaysFramebuffer;
+
+    int                                     m_glossyYScale = 2;
+
+    /** If true, ray trace glossy reflections. */
+    bool                                    m_traceGlossyReflections = true;
+    
+    /** Specifies the mip level at which to sample textures
+    for irradiance and glossy rays.*/
+    int                                     m_diffuseMipLevel = 8;
+    int                                     m_glossyMipLevel = 3;
+
+    /** Number of frames to spend initializing probes if any volume has uninitialized probes.
+        Triggered on scene load, volume creation, and leap-frogging on a camera-locked volume. */
+    int                                     m_numInitializationFrames = 0;
+    bool									m_shouldClearUninitializedProbes = false;
+    bool                                    m_newlyXProbes = false;
+
+    shared_ptr<GaussianMIPFilter>          m_gaussianMIPFilter;
+
+    shared_ptr<GBuffer>                     m_reflectionGBuffer;
+
+    /** Textures storing ray origins and directions for irradiance probe sampling,
+    regenerated every frame and then split between all probes according to a given heuristic. */
+    shared_ptr<Texture>                     m_irradianceRayOriginsTexture;
+    shared_ptr<Texture>                     m_irradianceRayDirectionsTexture;
+
+    /** Ray textures for reflection rays. */
+    shared_ptr<Texture>                     m_reflectionRayOriginsTexture;
+    shared_ptr<Texture>                     m_reflectionRayDirectionsTexture;
+
+    shared_ptr<Framebuffer>                 m_irradianceRaysShadedFB;
+    shared_ptr<GBuffer>                     m_irradianceRaysGBuffer;
+
+
+    Table<shared_ptr<Texture>, shared_ptr<GLPixelTransferBuffer>> m_rayOriginsAndDirectionsTable;
+    using PBOGBuffer = shared_ptr<GLPixelTransferBuffer>[5];
+    PBOGBuffer                              m_pboGBuffer;
+
+    /** Ray traced diffuse global illumination using DDGI. */
+    bool                                    m_enableDiffuseGI = false;
+
+    /** Renders the glossy pass for primary rays each frame. */
+    bool                                    m_enableGlossyGI = false;
+
+
+    /** Trace an arbitrary buffer of rays to fill a GBuffer. */
+    void sampleArbitraryRays
+    (const shared_ptr<Texture>& rayOrigins,
+        const shared_ptr<Texture>& rayDirections,
+        const shared_ptr<TriTree>& tritree,
+        const shared_ptr<GBuffer>& gbuffer,
+        const int                                   totalRays,
+        const unsigned int							visibilityMask,
+        const int mipLevel = 0);
+
+    /** Run the deferred shader on a gbuffer of arbitrary ray data. */
+    void shadeArbitraryRays
+    (RenderDevice* rd,
+        const Array<shared_ptr<Surface>>&   surfaceArray,
+        const shared_ptr<Framebuffer>&      targetFramebuffer,
+        const LightingEnvironment&          environment,
+        const shared_ptr<Texture>&          rayOrigins,
+        const shared_ptr<Texture>&          rayDirections,
+        const shared_ptr<GBuffer>&          gbuffer,
+        const bool                          useProbeIndirect,
+        const bool                          glossyToMatte);
+
+    void resizeReflectionRayTextures(const int screenWidth, const int screenHeight);
+    void resizeIrradianceRayTextures(const int raysPerProbe = -1);
+
+    /** Generate rays for diffuse irradiance. Uses DDGIVolume_generateRays.glc. */
+    void generateIrradianceRays(RenderDevice* rd, const int offset, const shared_ptr<DDGIVolume>& ddgiVolume, int& numGeneratedRays, const int raysPerProbe);
+
+    /** \param numGlossyRays Returns the number of rays generated; needed by generateIrradianceRays */
+    void generateMirrorRays(RenderDevice* rd, const shared_ptr<GBuffer>& primaryGBuffer, int& numGlossyRays);
+
     /** e.g., "DefaultRenderer" used for switching the shaders loaded by subclasses. */
     String                      m_shaderName;
 
@@ -71,7 +157,6 @@ protected:
     int                         m_oitUpsampleFilterRadius;
 
     /** If true, all OIT buffers will be in 32-bit floating point.
-    
         Default is false. */
     bool                        m_oitHighPrecision;
 
@@ -85,7 +170,7 @@ protected:
         http://graphics.cs.williams.edu/papers/TransparencyI3D16/
 
         It shares the depth with the original framebuffer but does not write to it.
-       */
+    */
     shared_ptr<Framebuffer>     m_oitFramebuffer;
     
     /** A low resolution version of m_oitFramebuffer. */
@@ -123,12 +208,11 @@ protected:
     /** Subclasses that can compute global illumination to deferred shading buffers should override this method,
         which is invoked before renderDeferredShading. */
     virtual void renderIndirectIllumination
-       (RenderDevice*                       rd,
-        const Array<shared_ptr<Surface> >&  sortedVisibleSurfaceArray, 
-        const shared_ptr<GBuffer>&          gbuffer, 
-        const LightingEnvironment&          environment) {
-        debugAssertM(m_deferredShading, "Renderer::renderIndirectIllumination should only be invoked when in deferred shading mode");
-    }
+    (RenderDevice* rd,
+        const Array<shared_ptr<Surface> >& sortedVisibleSurfaceArray,
+        const shared_ptr<GBuffer>& gbuffer,
+        const LightingEnvironment& environment,
+        const shared_ptr<TriTree>& tritree = nullptr);
     
     /** Called by DefaultRenderer::renderDeferredShading to configure the inputs to deferred shading. */
     virtual void setDeferredShadingArgs(
@@ -201,6 +285,156 @@ protected:
 
 public:
 
+    // Named constants for the number of frames to initialize.
+    static const int CAMERA_TRACK = 2;
+    static const int SCENE_INIT = 5;
+
+    /** For creating the diffuse irradiance probe volume(s).
+        Volumes at varying grid resolutions store irradiance (RGB10A2) and
+        mean distance/squared-distance (RG16F). When enabled, these volumes are
+        updated using raytracing and queried during shading (for both raytracing
+        and rasterization) for duffise global illumination. Details in:
+
+        Majercik et al., Dynamic Diffuse Global Illumination with Ray-Traced Irradiance Fields, JCGT'19
+        http://jcgt.org/published/0008/02/01/
+    */
+    void createProbeVolumes(const AABox& sceneBounds, LightingEnvironment& environment, const shared_ptr<Camera>& camera);
+
+    /** Resolve probe states and update the irradiance probe volume. */
+    void updateDiffuseGI(RenderDevice* rd,
+        const shared_ptr<Scene>& scene,
+        const shared_ptr<GBuffer>& primaryGBuffer,
+        const shared_ptr<Camera>& camera);
+
+    /** Update the probe data structure. Called multiple times from updateDiffuseGI
+        to intialize different sets of probes in different states. */
+    void traceAndUpdateProbes(
+        RenderDevice* rd,
+        const Array<shared_ptr<Surface>>& surfaceArray,
+        const shared_ptr<TriTree>& tritree,
+        const shared_ptr<GBuffer>& primaryGBuffer,
+        const LightingEnvironment& environment,
+        const int                              raysPerProbe,
+        const unsigned int					   visibilityMask);
+
+    /** Trace half-res rays to resolve glossy ilumination. If diffuse GI is enabled, 
+        uses irradiance volume for second-order glossy reflections. */
+    void traceGlossyIndirectIllumination
+    (RenderDevice* rd,
+        const Array<shared_ptr<Surface> >& sortedVisibleSurfaceArray,
+        const shared_ptr<GBuffer>& gbuffer,
+        const LightingEnvironment& environment,
+        const shared_ptr<TriTree>& tritree = nullptr);
+
+    /** If there are any probes in the uninitialized state, converge them. */
+    void convergeUninitializedProbes(RenderDevice* rd, 
+        const Array<shared_ptr<Surface>>& surfaceArray, 
+        const shared_ptr<TriTree>& tritree, 
+        const shared_ptr<GBuffer>& gbuffer, 
+        const LightingEnvironment& lightingEnv);
+
+    /** Compute bounds on dynamic objects to wake up sleeping probes. */
+    void getDynamicObjectBounds(const Array<shared_ptr<Entity>>& sceneEntities, Array<AABox>& dynamicBounds);
+
+    const shared_ptr<GBuffer>& irradianceGBuffer() {
+        return m_irradianceRaysGBuffer;
+    }
+
+    const shared_ptr<GBuffer>& reflectionGBuffer() {
+        return m_reflectionGBuffer;
+    }
+
+    AABox                                   m_bounds;
+
+    Array<shared_ptr<DDGIVolume>>			m_ddgiVolumeArray;
+    Array<bool>                             m_showProbeLocations;
+
+    /** How much should the probes count when shading *themselves*? 1.0 preserves
+    energy perfectly. Lower numbers compensate for small leaks/precision by avoiding
+    recursive energy explosion. */
+    float                                   m_energyPreservation = 0.95f;
+
+    int									    m_raysThisFrame = 0;
+
+    shared_ptr<Framebuffer>                 m_glossyGIFramebuffer;
+
+    Matrix3                                 m_randomOrientation;
+
+    void setReflectionTexture(const shared_ptr<GLPixelTransferBuffer>& pbo) {
+        // Takes a pbo to avoid the const_cast
+        m_blurredMIPReflectionFramebuffer->texture(0)->update(pbo);
+    }
+
+    const shared_ptr<Texture>& reflectionTexture() {
+        return m_blurredMIPReflectionFramebuffer->texture(0);
+    }
+
+    void setEnableDiffuseGI(bool b) {
+        m_enableDiffuseGI = b;
+    }
+
+    bool enableDiffuseGI() {
+        return m_enableDiffuseGI;
+    }
+    void setEnableGlossyGI(bool b) {
+        m_enableGlossyGI = b;
+    }
+
+    bool enableGlossyGI() {
+        return m_enableGlossyGI;
+    }
+
+    bool traceGlossyReflections() {
+        return m_traceGlossyReflections;
+    }
+
+    /** When everything is enabled, assuming looking at a fully glossy frame */
+    float gRaysPerFrame() const {
+        return float(m_raysThisFrame) * 1e-9f;
+    }
+
+    /** Fraction of rays cast that were for diffuse shading */
+    float diffuseRayFraction() const {
+        float numDiffuseRays = float(m_irradianceRayOriginsTexture->width() * m_irradianceRayOriginsTexture->height());
+        return numDiffuseRays /
+            (numDiffuseRays + m_reflectionRayOriginsTexture->width() * m_reflectionRayOriginsTexture->height());
+    }
+
+    void addVolumeInitializationFrames(int numInitializationFrames) {
+        // This is the union of initialization requirements: it must be additive.
+        m_numInitializationFrames += numInitializationFrames;
+        m_shouldClearUninitializedProbes = true;
+    }
+
+    int initializationFrames() {
+        return m_numInitializationFrames;
+    }
+
+    void setTraceGlossyReflections(bool b) {
+        m_traceGlossyReflections = b;
+    }
+
+    void setGlossyYScale(int i) {
+        m_glossyYScale = i;
+    }
+
+    int glossyYScale() const {
+        return m_glossyYScale;
+    }
+
+    int diffuseMipLevel() const {
+        return m_diffuseMipLevel;
+    }
+    void setDiffuseMipLevel(int i) {
+        m_diffuseMipLevel = i;
+    }
+    int glossyMipLevel() const {
+        return m_glossyMipLevel;
+    }
+    void setGlossyMipLevel(int i) {
+        m_glossyMipLevel = i;
+    }
+
     static shared_ptr<Renderer> create() {
         return createShared<DefaultRenderer>();
     }
@@ -249,7 +483,8 @@ public:
         const shared_ptr<Framebuffer>&      depthPeelFramebuffer,
         LightingEnvironment&                lightingEnvironment,
         const shared_ptr<GBuffer>&          gbuffer, 
-        const Array<shared_ptr<Surface>>&   allSurfaces) override;
+        const Array<shared_ptr<Surface>>&   allSurfaces,
+        const shared_ptr<TriTree>&          tritree = nullptr) override;
 };
 
 } // namespace

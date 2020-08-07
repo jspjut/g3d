@@ -17,6 +17,7 @@
 #include "G3D-base/lazy_ptr.h"
 #include "G3D-app/LightingEnvironment.h"
 #include "G3D-app/ArticulatedModel.h"
+#include "G3D-app/TriTree.h"
 
 namespace G3D {
 
@@ -89,7 +90,12 @@ public:
     /** \sa registerModelType */
     typedef lazy_ptr<Model> (*LazyModelFactory)(const String& name, const Any& any);
 
+    const shared_ptr<TriTree>& tritree();
+
 protected:
+
+    // BVH used for ray tracing.
+    shared_ptr<TriTree>                 m_triTree;
 
     enum VisitorState {NOT_VISITED, VISITING, ALREADY_VISITED};
 

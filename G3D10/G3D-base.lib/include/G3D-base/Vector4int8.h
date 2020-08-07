@@ -23,6 +23,9 @@ class Vector4uint8 {
 public:
     G3D::uint8 x, y, z, w;
 
+    /** Clamps to 255 when converting, it is assumed you've already multiplied by 255. */
+    explicit Vector4uint8(const Vector4& source);
+
     Vector4uint8() : x(0), y(0), z(0), w(0) {}
 
     inline G3D::uint8& operator[] (int i) {

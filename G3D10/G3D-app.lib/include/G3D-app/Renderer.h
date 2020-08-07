@@ -24,6 +24,7 @@ class LightingEnvironment;
 class SceneVisualizationSettings;
 class RenderPassType;
 class Rect2D;
+class TriTree;
 
 /** \brief Base class for 3D rendering pipelines. 
     \sa GApp::onGraphics3D */
@@ -123,6 +124,7 @@ public:
       \param depthPeelFramebuffer May be nullptr
       \param lightingEnvironment Shadow maps will be updated for any lights that require them. AO will be updated if the
              ambientOcclusion field is non-nullptr. Screen-space color buffer will be updated with textures the next frame.
+      \param tritree The BVH for ray tracing queries.
     */
     virtual void render
        (RenderDevice*                       rd, 
@@ -131,7 +133,8 @@ public:
         const shared_ptr<Framebuffer>&      depthPeelFramebuffer,
         LightingEnvironment&                lightingEnvironment,
         const shared_ptr<GBuffer>&          gbuffer, 
-        const Array<shared_ptr<Surface>>&   allSurfaces) = 0;
+        const Array<shared_ptr<Surface>>&   allSurfaces,
+        const shared_ptr<TriTree>&          tritree = nullptr) = 0;
 };
 
 } // namespace G3D

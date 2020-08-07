@@ -140,9 +140,10 @@ void TriTreeBase::intersectRays
         for (size_t i = start; i < end; ++i) {
             const Hit& hit = pHit[i];
             if (hit.triIndex != Hit::NONE) {
-                // TODO: compute MIP level using coherence, pass to sample
-                pTri[hit.triIndex].sample(hit.u, hit.v, hit.triIndex, m_vertexArray, hit.backface, pSurfel[i]);
-            } else {
+                // Pass twoSided to determine whether or not to flip normals.
+                pTri[hit.triIndex].sample(hit.u, hit.v, hit.triIndex, m_vertexArray, hit.backface, pSurfel[i], pTri[hit.triIndex].twoSided());
+            }
+            else {
                 pSurfel[i] = nullptr;
             }
         }
@@ -286,6 +287,7 @@ void TriTreeBase::intersectRays
     const shared_ptr<GLPixelTransferBuffer>  results[5],
     IntersectRayOptions                      options,
     const shared_ptr<GLPixelTransferBuffer>& rayCoherence,
+    const int baseMipLevel,
 	const Vector2int32 wavefrontDimensions,
 	const RenderMask mask) const {
 
@@ -304,25 +306,31 @@ void TriTreeBase::intersectRays
     Array<shared_ptr<Surfel>> surfelBuffer;
     intersectRays(rayBuffer, surfelBuffer, options, rayCoherenceBuffer);
 
-    float* resultPtr[5];
+    void* resultPtr[5];
     for (int i = 0; i < 5; ++i) {
-        resultPtr[i] = (float*)results[i]->mapWrite();
+        resultPtr[i] = results[i]->mapWrite();
     }
 
     // Upload
     // For each pixel
-    runConcurrently(0, rayOrigin->width() * rayOrigin->height(), [&](int i) {
-        const shared_ptr<Surfel>& s = surfelBuffer[i];
-        if (isNull(s)) { return; }
+	runConcurrently(0, rayBuffer.size(), [&](int i) {
+		const shared_ptr<Surfel>& s = surfelBuffer[i];
+		if (isNull(s)) {
+			((Vector4*)resultPtr[0])[i] = Vector4(0.0f, 0.0f, 0.0f, finf());
+			((Vector4*)resultPtr[1])[i] = Vector4(0.0f, 0.0f, 0.0f, -1.0f);
+			((Vector4*)resultPtr[4])[i] = Color4(0.0f, 0.0f, 0.0f, -1.0f);
+		}
+		else {
+			const shared_ptr<UniversalSurfel>& surfel = dynamic_pointer_cast<UniversalSurfel>(surfelBuffer[i]);
+			debugAssertM(notNull(surfel), "Unknown surfel type");
 
-        const shared_ptr<UniversalSurfel>& surfel = dynamic_pointer_cast<UniversalSurfel>(s);
-        debugAssertM(notNull(surfel), "Unknown surfel type");
-        
-        reinterpret_cast<Point3*>(resultPtr[0])[i] = surfel->position;
-        reinterpret_cast<Vector3*>(resultPtr[1])[i] = surfel->shadingNormal;
-        reinterpret_cast<Color3*>(resultPtr[2])[i] = surfel->lambertianReflectivity;
-        reinterpret_cast<Color4*>(resultPtr[3])[i] = Color4(surfel->glossyReflectionCoefficient, surfel->smoothness);
-        reinterpret_cast<Color3*>(resultPtr[4])[i] = surfel->emission;
+			((Vector4*)resultPtr[0])[i] = Vector4(surfel->position, 1.0f);
+			((Vector4*)resultPtr[1])[i] = Vector4(surfel->shadingNormal, 0.0f);
+            // TODO: restore
+			((Vector4uint8*)resultPtr[2])[i] = Vector4uint8(Vector4(255.0f * Color4(surfel->lambertianReflectivity, 1.0f)));
+			((Vector4uint8*)resultPtr[3])[i] = Vector4uint8(Vector4(255.0f * Color4(surfel->glossyReflectionCoefficient, surfel->smoothness)));
+			((Vector4*)resultPtr[4])[i] = Color4(surfel->emission, 1.0f);
+		}
     });
 
     for (int i = 0; i < 5; ++i) {
