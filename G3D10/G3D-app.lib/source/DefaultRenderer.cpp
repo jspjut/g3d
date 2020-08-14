@@ -473,7 +473,9 @@ void DefaultRenderer::generateIrradianceRays(RenderDevice* rd, const int offset,
     args.setUniform("gridSize", Vector2int32(width, height));
     args.setUniform("textureWidth", m_irradianceRayOriginsTexture->width());
 
-    const Matrix3& randomOrientation = Matrix3::fromAxisAngle(Vector3::random(), Random::common().uniform(0.f, 2 * pif()));
+    // TODO: restore
+    const Matrix3& randomOrientation = Matrix3::identity();
+        //Matrix3::fromAxisAngle(Vector3::random(), Random::common().uniform(0.f, 2 * pif()));
     
     ddgiVolume->setRandomOrientation(randomOrientation);
     args.setUniform("randomOrientation", randomOrientation);

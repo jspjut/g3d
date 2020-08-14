@@ -111,13 +111,18 @@ void main() {
 		flag = 0;
         // We hit a backface
         Vector3 closestBackfaceDirection = closestBackfaceDistance * normalize(randomOrientation * sphericalFibonacci(closestBackfaceIndex, RAYS_PER_PROBE));
-		float scaleFactor = 2.0f;
-		// Give explicit bounds so the compiler can unroll the loop.
-		for (int i = 1; i <= 100; ++i) {
-			if ( !all(lessThan(abs(fullOffset), offsetLimit))) {
-				fullOffset = currentOffset.xyz + closestBackfaceDirection * (scaleFactor - (float(i) * 0.01f));
-			}
-		}
+        
+        // Solve for the maximum scaling possible on each axis.
+        Vector3 positiveOffset = (-currentOffset.xyz + offsetLimit) / closestBackfaceDirection;
+        Vector3 negativeOffset = (-currentOffset.xyz - offsetLimit) / closestBackfaceDirection;
+        Vector3 combinedOffset = Vector3(max(positiveOffset.x, negativeOffset.x), max(positiveOffset.y, negativeOffset.y), max(positiveOffset.z, negativeOffset.z));
+
+        // Slightly bias this point to ensure we stay within bounds.
+        const float epsilon = 1e-3; // Millimeter scale
+        float scaleFactor = (min(min(combinedOffset.x, combinedOffset.y), combinedOffset.z) - epsilon);
+
+        // If we can't move through the backface, don't move at all.
+        fullOffset = currentOffset.xyz + closestBackfaceDirection * ((scaleFactor <= 1.0f) ? 0.0f : scaleFactor);
 	}
 	else if (closestFrontfaceIndex == -1) {
 		// Probe sees only backfaces and sky, so set probe to "Off".
