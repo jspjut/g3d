@@ -211,7 +211,7 @@ void GuiTextBox::replaceHighlightedText(const String& s) {
 
 void GuiTextBox::insertCharacter(char c) {
     if (m_highlightPos != -1) {
-        replaceHighlightedText(String(c));
+      replaceHighlightedText(String(1, c));
     } else {
         m_userValue =
             m_userValue.substr(0, m_cursorPos) +

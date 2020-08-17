@@ -7,7 +7,7 @@
   Available under the BSD License
 */
 #pragma once
-#define G3D_os_G3D_os_h
+#define G3D_base_G3D_base_h
 #ifndef NOMINMAX
     #define NOMINMAX 1
 #endif

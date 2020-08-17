@@ -43,6 +43,11 @@
 #    define G3D_X86
 #endif
 
+#if defined(__arm64__) || defined(__x86_64__) || defined(__IA64__) || defined(_M_X64) || defined(_M_IA64) || defined (__aarch64__)
+#    define G3D_64_BIT
+#endif
+
+
 /** \def G3D_WINDOWS Defined on Windows platforms*/
 /** \def G3D_FREEBSD Defined on FreeBSD and OpenBSD */
 /** \def G3D_LINUX Defined on Linux, FreeBSD and OpenBSD */
