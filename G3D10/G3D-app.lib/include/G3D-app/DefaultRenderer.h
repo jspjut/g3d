@@ -314,8 +314,8 @@ public:
         const shared_ptr<TriTree>& tritree,
         const shared_ptr<GBuffer>& primaryGBuffer,
         const LightingEnvironment& environment,
-        const int                              raysPerProbe,
-        const unsigned int					   visibilityMask);
+        const int                  raysPerProbe,
+        const unsigned int         visibilityMask);
 
     /** Trace half-res rays to resolve glossy ilumination. If diffuse GI is enabled, 
         uses irradiance volume for second-order glossy reflections. */
