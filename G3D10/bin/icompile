@@ -942,7 +942,7 @@ def configureGppOrClang(state):
     if state.binaryType == DLL:
         state.linkerOptions  += ['-shared']
 
-    state.compilerWarningOptions = ['-Wall', '-Wformat=2', '-Wno-format-nonliteral', '-Wsign-compare', '-Wtype-limits', '-Wuninitialized', '-Wmissing-field-initializers']
+    state.compilerWarningOptions = ['-Wall', '-Wformat=2', '-Wno-format-nonliteral', '-Wsign-compare', '-Wtype-limits', '-Wuninitialized', '-Wmissing-field-initializers', '-Wno-error=unused-command-line-argument']
     # , '-Woverloaded-virtual']  # removed: this created too many false warnings
 
     if state.os == 'osx':

@@ -286,7 +286,7 @@ def buildNativeFFmpeg():
         ice.utils.rmdir(os.path.abspath('temp/ffmpeg'), False)
 
     # extract ffmpeg sources
-    sourceTar = 'external/ffmpeg/source/ffmpeg-3.4.1.tar.gz'
+    sourceTar = 'external/ffmpeg/source/ffmpeg-4.2.2.tar.bz2'
 
     if not os.path.exists(sourceDir):
         print('Extracting ffmpeg source')

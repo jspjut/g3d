@@ -262,7 +262,9 @@
     <li> Changed the biasing of 8-bit motion vectors to make zero exactly representable [Ben Boudaoud]</li>
     <li> Added new G3D::Image::forEachPixel overloads for non-mutating callbacks and for passing the color by value 
          instead of const reference (which is more convenient for the caller and probably the same performance on a 64-bit machine).</li>
-    <li> Exposed FMOD's setDSPBufferSize parameters in G3DSpecification with FMOD defaults as G3D defaults. [Josef Spjut]</li>
+	<li> Exposed FMOD's setDSPBufferSize parameters in G3DSpecification with FMOD defaults as G3D defaults. [Josef Spjut]</li>
+	<li> Excluded Python and Embree from linking on ARM, since they use precompiled x64 binaries in the current build </li>
+	<li> Made G3D::String a typedef for std::string on legacy 32-bit platforms, since that class depends on a 8-byte aligned allocator that 32-bit runtimes do not necessarily provide. </li>
     </ul>
    </p>
 

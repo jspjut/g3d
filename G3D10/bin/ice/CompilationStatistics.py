@@ -132,13 +132,13 @@ def generateStatistics(state):
     try:
         hasExuberant = (subprocess.check_output('ctags --version', shell=True)).decode("utf-8").startswith("Exuberant")
     except:
-        maybeWarn("Cannot run ctags, which is necessary for statistics generation.\n Run Xcode once as an administrator to initialize command line tools.", state)
+        maybeWarn("Cannot run ctags, which is necessary for statistics generation.\n On macOS, run Xcode once as an administrator to initialize command line tools.", state)
         sys.exit(1)
     if hasExuberant:
         stats.routines = int(subprocess.check_output('ctags -xw --c++-kinds=f ' + (' '.join(files)) + ' | wc -l', shell=True))
         stats.classes  = int(subprocess.check_output('ctags -xw --c++-kinds=c ' + (' '.join(files)) + ' | wc -l', shell=True))
     else:
-        maybeWarn('Using old ctags instead of exuberant ctags. Upgrade with "sudo port install ctags" (http://ctags.sf.net/) for better summary information.', state)
+        maybeWarn('Using old ctags instead of exuberant ctags. Upgrade with "sudo port install ctags" on macOS or "sudo apt install exuberant-ctags" on Linux (http://ctags.sf.net/) for better summary information.', state)
         stats.routines = int(subprocess.check_output('ctags -xw ' + (' '.join(files)) + ' | wc -l', shell=True))
         stats.classes = 0
 

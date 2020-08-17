@@ -9,7 +9,9 @@
 #pragma once
 
 #include "G3D-base/platform.h"
+
 #include <string>
+
 #include <stdint.h>
 #include <assert.h>
 #include <algorithm>
@@ -1154,15 +1156,15 @@ public:
  The name of the destructor for the class currently typedef'ed to String.
 */
 
-// Choose the implementation of G3D::String (for debugging)
-#if 0
+// Choose the implementation of G3D::String (for debugging or legacy platforms)
+#if !defined(G3D_64_BIT) // 32-bit
 
-    // Slow...never use
     typedef std::string String;
-    #define G3D_STRING_DESTRUCTOR ~string
+    #define G3D_STRING_DESTRUCTOR ~basic_string
 
-#elif 0
-    // // Faster: use a good allocator with std::basic_string
+#elif 0//
+    // // Faster: use a good allocator with std::basic_string. This requires implementing
+    // casts between different std::strings, however
     typedef std::basic_string<char, std::char_traits<char>, G3DAllocator<char> >  String;
     #define G3D_STRING_DESTRUCTOR ~basic_string
 
@@ -1186,3 +1188,4 @@ inline G3D::G3DString<64> operator+(const char* s1, const G3D::G3DString<64>& s2
 inline G3D::G3DString<64> operator+(const char s1, const G3D::G3DString<64>& s2) {
     return G3D::G3DString<64>(s1) + s2;
 }
+

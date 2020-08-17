@@ -316,7 +316,7 @@ Any Scene::load(const String& scene, const LoadOptions& loadOptions) {
     Any any;
     any.load(filename);
 
-    m_description = any.get("description", "");
+    m_description = any.get("description", "").string();
 
     {
         const String& n = any.get("name", filename);
@@ -427,7 +427,7 @@ Any Scene::load(const String& scene, const LoadOptions& loadOptions) {
     setTime(any.get("time", 0.0));
     m_lastVisibleChangeTime = m_lastLightChangeTime = m_lastStructuralChangeTime = System::time();
 
-    m_defaultCameraName = any.get("defaultCamera", "defaultCamera");
+    m_defaultCameraName = any.get("defaultCamera", "defaultCamera").string();
 
     m_localLightingEnvironment.ambientOcclusion = old;
 

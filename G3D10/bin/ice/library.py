@@ -103,7 +103,8 @@ def defineLibrary(lib):
            symbolToLibraryTable[symbol] = [lib.name]
 
 isOSX = sys.platform.startswith('darwin')
-isARM = machine() == 'aarch64'
+# RaspberryPi reports as armv7l. Jetson Nano reports as aarch64
+isARM = machine() == 'aarch64' or machine()[:3] == 'arm'
 
 # On non-OSX unix systems G3D needs X11 and SDL.  On OS X, GL is a framework. 
 if not isOSX:
