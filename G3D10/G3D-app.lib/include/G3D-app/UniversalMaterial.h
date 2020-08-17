@@ -637,7 +637,7 @@ public:
     }
 
     /** Re-uses the existing \a surfel if it is a UniversalSurfel */
-    virtual void sample(const Tri& tri, float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backside, shared_ptr<Surfel>& surfel, float du = 0, float dv = 0) const override;
+    virtual void sample(const Tri& tri, float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backside, shared_ptr<Surfel>& surfel, float du = 0, float dv = 0, bool twoSided = true) const override;
 };
 
 }

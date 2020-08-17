@@ -449,6 +449,15 @@
     <ClCompile Include="..\G3D-app.lib\source\EmulatedXR.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\G3D-app.lib\source\DDGIVolume.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\G3D-app.lib\source\GaussianMIPFilter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\G3D-app.lib\source\DDGIVolumeSpecification.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\G3D-app.lib\source\Load3DS.h">
@@ -830,6 +839,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\EmulatedXR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\G3D-app.lib\include\G3D-app\DDGIVolume.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\G3D-app.lib\include\G3D-app\GaussianMIPFilter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\G3D-app.lib\include\G3D-app\DDGIVolumeSpecification.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

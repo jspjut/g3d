@@ -48,7 +48,7 @@ public:
     virtual bool coverageLessThanEqual(const float alphaThreshold, const Point2& texCoord) const = 0;
     virtual void setStorage(ImageStorage s) const = 0;
     virtual const String& name() const = 0;
-    virtual void sample(const Tri& tri, float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backside, shared_ptr<Surfel>& surfel, float du = 0, float dv = 0) const = 0;
+    virtual void sample(const Tri& tri, float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backside, shared_ptr<Surfel>& surfel, float du = 0, float dv = 0, bool twoSided = true) const = 0;
 };
 
 } // namespace G3D

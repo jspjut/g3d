@@ -40,17 +40,17 @@ void OptiXTriTree::setTimingCallback(wave::TimingCallback* callback, int verbosi
 }
 
 
-shared_ptr<Texture> OptiXTriTree::convertToOptiXFormat(shared_ptr<Texture> tex) {
+shared_ptr<Texture> OptiXTriTree::convertToOptiXFormat(const shared_ptr<Texture>& tex) {
     alwaysAssertM((tex->dimension() == Texture::DIM_2D) || (tex->dimension() == Texture::DIM_CUBE_MAP), "We currently only support 2D textures and cubemaps for interop with OptiX");
 
     // Cache of textures that had to be converted to another
     // opengl format before OptiX interop wrapping
-    static Table<shared_ptr<Texture>, shared_ptr<Texture>> formatConvertedTextureCache;
+    static Table<GLuint, shared_ptr<Texture>> formatConvertedTextureCache;
 
     if (! optixSupportsTexture(tex)) {
         // Convert from current format to RGBA32F
         bool needsConversion = false;
-        shared_ptr<Texture>& converted = formatConvertedTextureCache.getCreate(tex, needsConversion);
+        shared_ptr<Texture>& converted = formatConvertedTextureCache.getCreate(tex->openGLID(), needsConversion);
         if (needsConversion) {
             if (tex->dimension() == Texture::DIM_2D) {
                 const ImageFormat* fmt = tex->format();
@@ -59,7 +59,7 @@ shared_ptr<Texture> OptiXTriTree::convertToOptiXFormat(shared_ptr<Texture> tex) 
 
                 if ((tex->format()->code == ImageFormat::Code::CODE_SRGBA8) || (tex->format()->code == ImageFormat::Code::CODE_SRGB8)) {
                     // sRGB8 -> RGBA16F or sRGBA8 -> RGBA16F
-                    newFormat = ImageFormat::RGBA16F();
+                    newFormat = ImageFormat::RGBA8();
                 } else if (fmtAlpha) {
                     // Add an alpha channel
                     newFormat = fmtAlpha;
@@ -69,13 +69,15 @@ shared_ptr<Texture> OptiXTriTree::convertToOptiXFormat(shared_ptr<Texture> tex) 
                 }
                 converted = Texture::createEmpty("Converted0 " + tex->name(), tex->width(), tex->height(),
                     Texture::Encoding(newFormat, tex->encoding().frame, tex->encoding().readMultiplyFirst, tex->encoding().readAddSecond));
+
                 Texture::copy(tex, converted);
             }
         }
-        tex = converted;
+        return converted;
     }
-
-    return tex;
+    else {
+        return tex;
+    }
 }
 
 
@@ -218,10 +220,9 @@ void OptiXTriTree::ensureMaterialCached(const shared_ptr<UniversalMaterial>& mat
     // Tri has a new material, so set the material in the wave::BVH and add it to the table.
     const shared_ptr<Texture>& bump         = notNull(material->bump())         ? convertToOptiXFormat(material->bump()->normalBumpMap()->texture()) : m_ignoreTexture;
     const shared_ptr<Texture>& lambertian   = material->bsdf()->hasLambertian() ? convertToOptiXFormat(material->bsdf()->lambertian().texture())     : m_ignoreTexture;
-    const shared_ptr<Texture>& glossy       = material->bsdf()->hasGlossy()     ? convertToOptiXFormat(material->bsdf()->glossy().texture())         : m_ignoreTexture;
+    const shared_ptr<Texture>& glossy       = material->bsdf()->hasGlossy()     ? convertToOptiXFormat(material->bsdf()->glossy().texture())        : m_ignoreTexture;
     const shared_ptr<Texture>& transmissive = material->hasTransmissive()       ? convertToOptiXFormat(material->bsdf()->transmissive().texture())   : m_ignoreTexture;
     const shared_ptr<Texture>& emissive     = material->hasEmissive()           ? convertToOptiXFormat(material->emissive().texture())               : m_ignoreTexture;
-
 
     bump->generateMipMaps();
     lambertian->generateMipMaps();
@@ -250,7 +251,6 @@ void OptiXTriTree::ensureMaterialCached(const shared_ptr<UniversalMaterial>& mat
         &transmissive->encoding().readAddSecond[0],
 
         emissive->openGLID(),
-        //emissive->toPixelTransferBuffer()->glBufferID(),
         &emissive->encoding().readMultiplyFirst[0],
         &emissive->encoding().readAddSecond[0],
 
@@ -273,13 +273,14 @@ void OptiXTriTree::intersectRays
     registerReallocationAndMapHooks(booleanResults);
 
     alwaysAssertM((options & 1), "Intersect rays with a single output buffer assumes occlusion cast");
-    m_bvh->occlusionCast(rayOrigins->glBufferID(), rayDirections->glBufferID(), rayOrigins->width(), rayOrigins->height(), booleanResults->glBufferID(), !(options & 8), !(options & 4), !(options & 2), RenderMask::ALL_GEOMETRY);
+    if (!m_bvh->occlusionCast(rayOrigins->glBufferID(), rayDirections->glBufferID(), rayOrigins->width(), rayOrigins->height(), booleanResults->glBufferID(), !(options & 8), !(options & 4), !(options & 2), RenderMask::ALL_GEOMETRY)) {
+        alwaysAssertM(false, "Internal wave.lib exception printed to stderr. This is likely an out of memory exception due to copying too many textures into CUDA-acceptable formats.");
+    }
 }
 
 
 void OptiXTriTree::copyToRayPBOs(const Array<Ray>& rays) const {
     const int width = 512; const int height = iCeil((float)rays.size() / (float)width);
-    //const int width = 640; const int height = 360;
 
     // Only reallocate the textures if we need more space
     if (isNull(m_rayOrigins) || (m_rayOrigins->width() * m_rayOrigins->height()) < (width * height)) {
@@ -362,7 +363,7 @@ void OptiXTriTree::intersectRays
         m_outHeight = height;
     }
    
-    m_bvh->cast(
+    if (!m_bvh->cast(
         rayOrigins->glBufferID(),
         rayDirections->glBufferID(),
         width,
@@ -371,7 +372,7 @@ void OptiXTriTree::intersectRays
         m_outPBOArray[Field::MATERIAL1]->glBufferID(),
         m_outPBOArray[Field::MATERIAL2]->glBufferID(),
         m_outPBOArray[Field::MATERIAL3]->glBufferID(),
-                          
+
         m_outPBOArray[Field::HIT_LOCATION]->glBufferID(),
         m_outPBOArray[Field::SHADING_NORMAL]->glBufferID(),
         m_outPBOArray[Field::POSITION]->glBufferID(),
@@ -380,7 +381,9 @@ void OptiXTriTree::intersectRays
         !(options & 8),
         !(options & 4),
         !(options & 2)
-    );
+    )) {
+        alwaysAssertM(false, "Internal wave.lib exception printed to stderr. This is likely an out of memory exception due to copying too many textures into CUDA-acceptable formats.");
+    }
     
     // Map the output data
     const Vector4uint16* hitLocation = reinterpret_cast<const Vector4uint16*>(m_outPBOArray[Field::HIT_LOCATION]->mapRead());
@@ -424,6 +427,7 @@ void OptiXTriTree::intersectRays
     const shared_ptr<GLPixelTransferBuffer>     results[5],
     IntersectRayOptions                         options,
     const shared_ptr<GLPixelTransferBuffer>&    rayCone,
+    const int baseMipLevel,
 	const Vector2int32 wavefrontDimensions,
 	const RenderMask mask) const {
 
@@ -439,11 +443,11 @@ void OptiXTriTree::intersectRays
     END_PROFILER_EVENT();
 
     BEGIN_PROFILER_EVENT("wave.lib: ray cast");
-    m_bvh->cast(
+    if (!m_bvh->cast(
         rayOrigin->glBufferID(),
         rayDirection->glBufferID(),
-		traceWidth,
-		traceHeight,
+        traceWidth,
+        traceHeight,
         results[2]->glBufferID(), // Lambertian
         results[3]->glBufferID(), // Glossy
         GL_NONE,                  // Transmissive
@@ -456,9 +460,12 @@ void OptiXTriTree::intersectRays
 
         !(options & TriTree::NO_PARTIAL_COVERAGE_TEST),
         !(options & TriTree::DO_NOT_CULL_BACKFACES),
-		0, // materialLOD
-		mask
-    );
+        baseMipLevel, // materialLOD
+        notNull(rayCone) ? rayCone->glBufferID() : GL_NONE,
+        mask
+    )) {
+        alwaysAssertM(false, "Internal wave.lib exception printed to stderr. This is likely an out of memory exception due to copying too many textures into CUDA-acceptable formats.");
+    }
     END_PROFILER_EVENT();
 }
 
@@ -519,8 +526,8 @@ void OptiXTriTree::intersectRays
 
     debugAssertGLOk();
 
-    m_bvh->cast
-       (rayOrigins->glBufferID(),
+    if (!m_bvh->cast
+    (rayOrigins->glBufferID(),
         rayDirections->glBufferID(),
         width,
         height,
@@ -528,7 +535,7 @@ void OptiXTriTree::intersectRays
         m_outPBOArray[Field::MATERIAL1]->glBufferID(),
         m_outPBOArray[Field::MATERIAL2]->glBufferID(),
         m_outPBOArray[Field::MATERIAL3]->glBufferID(),
-                                     
+
         m_outPBOArray[Field::HIT_LOCATION]->glBufferID(),
         m_outPBOArray[Field::SHADING_NORMAL]->glBufferID(),
         m_outPBOArray[Field::POSITION]->glBufferID(),
@@ -536,7 +543,9 @@ void OptiXTriTree::intersectRays
 
         !(options & TriTree::NO_PARTIAL_COVERAGE_TEST),
         !(options & TriTree::DO_NOT_CULL_BACKFACES)
-    );
+    )) {
+        alwaysAssertM(false, "Internal wave.lib exception printed to stderr. This is likely an out of memory exception due to copying too many textures into CUDA-acceptable formats.");
+    }
 
     debugAssertGLOk();
 

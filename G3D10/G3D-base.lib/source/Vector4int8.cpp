@@ -16,6 +16,14 @@
 #include "G3D-base/G3DString.h"
 
 namespace G3D {
+	
+    // TODO: ddgi restore
+    Vector4uint8::Vector4uint8(const Vector4& source) {
+        x = iClamp(iRound(source.x), 0, 255);
+        y = iClamp(iRound(source.y), 0, 255);
+        z = iClamp(iRound(source.z), 0, 255);
+        w = iClamp(iRound(source.w), 0, 255);
+    }
 
 Vector4int8::Vector4int8(const Vector4& source) {
     x = iClamp(iRound(source.x), -128, 127);

@@ -105,7 +105,7 @@ protected:
         Array<shared_ptr<Surfel>>&         results,
         IntersectRayOptions                options) const;
 
-    static shared_ptr<Texture> convertToOptiXFormat(shared_ptr<Texture> tex);
+    static shared_ptr<Texture> convertToOptiXFormat(const shared_ptr<Texture>& tex);
 
     void ensureMaterialCached(const shared_ptr<UniversalMaterial>& material);
 
@@ -216,6 +216,7 @@ public:
         const shared_ptr<GLPixelTransferBuffer>  results[5],
         IntersectRayOptions                      options = IntersectRayOptions(0),
         const shared_ptr<GLPixelTransferBuffer>& rayCone = nullptr,
+        const int baseMipLevel = 0,
 		const Vector2int32 wavefrontDimensions = Vector2int32(-1,-1),
 		const RenderMask mask = 0xFF) const override;
 

@@ -15,6 +15,7 @@
 #include "G3D-gfx/Texture.h"
 #include "G3D-app/AmbientOcclusionSettings.h"
 #include "G3D-gfx/UniformTable.h"
+#include "G3D-app/DDGIVolumeSpecification.h"
 
 namespace G3D {
 
@@ -22,9 +23,11 @@ class Light;
 class AmbientOcclusion;
 class Args;
 class Any;
+class DDGIVolume;
 
 /** \brief Lighting environment (not just "environment map") intended for hardware rendering
-    using screen-space approximations of indirect light.
+    using screen-space approximations of indirect light. If enabled, uses DDGI for ray-traced
+    diffuse global illumination.
  */
 class LightingEnvironment {
 protected:
@@ -47,6 +50,9 @@ public:
 
     shared_ptr<AmbientOcclusion>    ambientOcclusion;
     AmbientOcclusionSettings        ambientOcclusionSettings;
+
+    Array<shared_ptr<DDGIVolume>>   ddgiVolumeArray;
+    Array<DDGIVolumeSpecification>  ddgiVolumeSpecificationArray;
 
     /** All environment map contributions are summed. Environment maps are scaled by a factor of PI when sampled
         because most environment maps are authored too dark, since legacy shaders often dropped that factor

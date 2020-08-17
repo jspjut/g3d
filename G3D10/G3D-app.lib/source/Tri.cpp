@@ -111,7 +111,7 @@ bool Tri::intersectionAlphaTest(const CPUVertexArray& vertexArray, float u, floa
 }
 
 
-void Tri::sample(float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backface, shared_ptr<Surfel>& surfel, float du, float dv) const {
+void Tri::sample(float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backface, shared_ptr<Surfel>& surfel, float du, float dv, bool twoSided) const {
     // Avoid using the material() helper method because we don't want to increment the material's 
     // shared_ptr counter, which requires an atomic (incrementing the surfel's one is unavoidable)
     //
@@ -119,7 +119,7 @@ void Tri::sample(float u, float v, int triIndex, const CPUVertexArray& vertexArr
     const UniversalSurface* surface = dynamic_cast<const UniversalSurface*>(m_data.get());
     if (surface) {
         // Most common case
-        surface->material()->sample(*this, u, v, triIndex, vertexArray, backface, surfel, du, dv);
+        surface->material()->sample(*this, u, v, triIndex, vertexArray, backface, surfel, du, dv, twoSided);
     } else {
         const shared_ptr<Material>& material = dynamic_pointer_cast<Material>(m_data);
         if (notNull(material)) {
@@ -129,7 +129,6 @@ void Tri::sample(float u, float v, int triIndex, const CPUVertexArray& vertexArr
         }
     }
 }
-
 
 
 } // namespace G3D

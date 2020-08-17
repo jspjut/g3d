@@ -122,6 +122,8 @@
     <ClCompile Include="..\G3D-app.lib\source\CameraControlWindow.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\Component.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\ControlPointEditor.cpp" />
+    <ClCompile Include="..\G3D-app.lib\source\DDGIVolume.cpp" />
+    <ClCompile Include="..\G3D-app.lib\source\DDGIVolumeSpecification.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\DebugTextWidget.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\DefaultRenderer.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\DepthOfField.cpp" />
@@ -146,6 +148,7 @@
     <ClCompile Include="..\G3D-app.lib\source\GameController.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\GApp.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\GaussianBlur.cpp" />
+    <ClCompile Include="..\G3D-app.lib\source\GaussianMIPFilter.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\GBuffer.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\GConsole.cpp" />
     <ClCompile Include="..\G3D-app.lib\source\GFont.cpp" />
@@ -249,6 +252,8 @@
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\CameraControlWindow.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\Component.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\ControlPointEditor.h" />
+    <ClInclude Include="..\G3D-app.lib\include\G3D-app\DDGIVolume.h" />
+    <ClInclude Include="..\G3D-app.lib\include\G3D-app\DDGIVolumeSpecification.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\debugDraw.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\DebugTextWidget.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\DefaultRenderer.h" />
@@ -271,6 +276,7 @@
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\GameController.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\GApp.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\GaussianBlur.h" />
+    <ClInclude Include="..\G3D-app.lib\include\G3D-app\GaussianMIPFilter.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\GBuffer.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\GConsole.h" />
     <ClInclude Include="..\G3D-app.lib\include\G3D-app\GFont.h" />

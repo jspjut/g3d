@@ -102,7 +102,7 @@ public:
     /** Primarily useful for constructing skybox surfels */
     static shared_ptr<UniversalSurfel> createEmissive(const Radiance3 emission, const Point3& position, const Vector3& normal);
 
-    void sample(const Tri& tri, float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backside, const class UniversalMaterial* universalMaterial, float du = 0, float dv = 0);
+    void sample(const Tri& tri, float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backside, const class UniversalMaterial* universalMaterial, float du = 0, float dv = 0, bool twoSided = true);
 
     UniversalSurfel(const Tri& tri, float u, float v, int triIndex, const CPUVertexArray& vertexArray, bool backside, float du = 0, float dv = 0) {
         sample(tri, u, v, triIndex, vertexArray, backside, dynamic_pointer_cast<UniversalMaterial>(tri.material()).get(), du, dv);

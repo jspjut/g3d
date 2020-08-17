@@ -16,6 +16,7 @@
 #include "G3D-app/ShadowMap.h"
 #include "G3D-gfx/Args.h"
 #include "G3D-gfx/RenderDevice.h"
+#include "G3D-app/DDGIVolume.h"
 
 #ifndef _MSC_VER
    #define _timeb timeb
@@ -149,6 +150,19 @@ LightingEnvironment::LightingEnvironment(const Any& any) {
 
     r.getIfPresent("ambientOcclusionSettings", ambientOcclusionSettings);
 
+    ddgiVolumeArray.fastClear();
+    ddgiVolumeSpecificationArray.fastClear();
+    // Irradiance volume
+    if (any.containsKey("ddgiVolumeArray")) {
+        Any ddgiVolumes = any["ddgiVolumeArray"];
+        if (ddgiVolumes.size() > 0) {
+            for (Any::AnyTable::Iterator it = ddgiVolumes.table().begin(); it.isValid(); ++it) {
+                ddgiVolumeSpecificationArray.append(DDGIVolumeSpecification(it->value));
+            }
+        }
+        r.setReadStatus("ddgiVolumeArray", true);
+    }
+
     r.verifyDone();
 }
 
@@ -163,6 +177,8 @@ Any LightingEnvironment::toAny() const {
     // (Save environment maps and weights here)
 
     a["ambientOcclusionSettings"] = ambientOcclusionSettings;
+    // TODO: ddgi serialize one or more ddgivolumes
+    //a["ddgiVolumeSpecification"]  = ddgiVolumeSpecification;
 
     /*
     Any lights = Any(Any::TABLE);
@@ -224,6 +240,12 @@ void LightingEnvironment::setShaderArgs(UniformTable& args, const String& prefix
     // Ambient occlusion
     if (notNull(ambientOcclusion) && ambientOcclusionSettings.enabled) {
         ambientOcclusion->setShaderArgs(args, prefix + "ambientOcclusion_");
+    }
+
+    // Diffuse GI
+    args.setMacro("NUM_DDGIVOLUMES", ddgiVolumeArray.size());
+    for (int i = 0; i < ddgiVolumeArray.size(); ++i) {
+        ddgiVolumeArray[i]->setShaderArgs(args, format("ddgiVolumeArray[%d].", i));
     }
 
     if (notNull(uniformTable)) {

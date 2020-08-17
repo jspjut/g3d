@@ -28,6 +28,7 @@
 #include "G3D-app/GBuffer.h"
 #include "G3D-app/debugDraw.h"
 #include "G3D-app/ArticulatedModelSpecificationEditorDialog.h"
+#include "G3D-app/DefaultRenderer.h"
 #include <mutex>
 
 namespace G3D {

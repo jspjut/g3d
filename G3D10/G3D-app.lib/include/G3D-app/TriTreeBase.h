@@ -86,6 +86,7 @@ public:
          const shared_ptr<GLPixelTransferBuffer>  results[5],
          IntersectRayOptions                      options         = IntersectRayOptions(0),
          const shared_ptr<GLPixelTransferBuffer>& rayCone         = nullptr,
+         const int baseMipLevel = 0,
 		 const Vector2int32 wavefrontDimensions = Vector2int32(-1,-1),
 		 const RenderMask mask = 0xFF) const override;
 
